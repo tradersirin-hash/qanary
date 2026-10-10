@@ -8,18 +8,25 @@
     <meta name="theme-color" content="#0b0d10" />
     <meta name="color-scheme" content="dark" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
-    <link rel="icon" type="image/svg+xml" href="/qanary.svg" />
+    <!-- favicon.svg switches ink with the browser's light/dark theme; qanary.svg (light ink) is for the dark site itself. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Qanary" />
     <meta property="og:title" content="Qanary · The quantum canary for Solana" />
     <meta property="og:description" content="Scan any Solana or EVM address for quantum exposure, hold devnet SOL behind LM-OTS post-quantum signatures, and watch an on-chain canary bounty. Unaudited research on devnet." />
-    <meta name="twitter:card" content="summary" />
+    <meta property="og:image" content="https://qanary.xyz/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Qanary logo, a Q whose ring breaks into a canary's beak, beside the words: The quantum canary for Solana" />
+    <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Qanary · The quantum canary for Solana" />
     <meta name="twitter:description" content="Quantum-exposure scanner, post-quantum devnet vault and on-chain canary for Solana. Unaudited research on devnet." />
+    <meta name="twitter:image" content="https://qanary.xyz/og.png" />
     <!-- canonical and og:url are set per page by App (SITE_URL in src/lib/links.ts + the page path); a static
          copy here would claim https://qanary.xyz/ on every page.
-         Add og:image + twitter:card=summary_large_image ONLY if public/og.png (1200x630) exists. -->
+         public/og.png (1200x630) is rendered from public/qanary.svg; regenerate it if the logo changes. -->
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

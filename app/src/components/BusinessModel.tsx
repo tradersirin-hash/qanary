@@ -49,7 +49,7 @@ const TIERS: Tier[] = [
   },
   {
     phase: 'planned',
-    icon: <img src="/qanary.svg" alt="" width={24} height={24} className="h-6 w-6 opacity-70 grayscale" />,
+    icon: <img src="/qanary.svg" alt="" width={24} height={24} className="h-6 w-6 opacity-70" />,
     title: 'tierCanaryTitle',
     audience: 'tierCanaryFor',
     body: 'tierCanaryBody',

@@ -283,7 +283,7 @@ export default function App() {
               alt=""
               width={28}
               height={28}
-              className="h-7 w-7 transition group-hover:drop-shadow-[0_0_12px_rgb(255_210_63/0.35)]"
+              className="h-7 w-7 transition group-hover:drop-shadow-[0_0_12px_rgb(242_243_245/0.3)]"
             />
             <span className="text-[17px] font-semibold tracking-[-0.02em]">Qanary</span>
           </Link>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>g{fill:#0B0D10}@media (prefers-color-scheme:dark){g{fill:#F2F3F5}}</style>
+  <g>
+    <path d="M46.5 48.5A24 24 0 1 1 53.5 36.5L46 29.5A16 16 0 1 0 37 45.5Z"/>
+    <path d="M41 42.5L61 49L45.5 34.5A16 16 0 0 1 41 42.5Z"/>
+    <circle cx="35" cy="22.5" r="3"/>
+  </g>
+</svg>
