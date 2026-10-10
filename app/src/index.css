@@ -50,10 +50,14 @@
 }
 
 @layer base {
+  /* No smooth scrolling: each page opens at its top instead of gliding there from the previous page.
+     Below lg the sticky header has a second row (page links), so focused elements need more clearance. */
   html {
     color-scheme: dark;
-    scroll-behavior: smooth;
-    scroll-padding-top: 5rem;
+    scroll-padding-top: 9rem;
+    @variant lg {
+      scroll-padding-top: 5rem;
+    }
   }
   body {
     @apply bg-ink font-sans text-fg antialiased;
@@ -69,7 +73,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;

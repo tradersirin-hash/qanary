@@ -141,9 +141,10 @@ export function Section({
   aside?: ReactNode;
   children: ReactNode;
 }) {
+  // Each Section is a whole page, so its title is the page's h1 (focused by App after client-side navigation).
   return (
-    <section id={id} aria-labelledby={`${id}-title`} className="border-t border-line/60">
-      <div className="mx-auto w-full max-w-6xl px-4 py-20 sm:px-6 sm:py-24 lg:px-8">
+    <section id={id} aria-labelledby={`${id}-title`}>
+      <div className="mx-auto w-full max-w-6xl px-4 pb-20 pt-14 sm:px-6 sm:pb-24 sm:pt-20 lg:px-8">
         <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div className="max-w-2xl">
             <p className="flex items-center gap-3 font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-canary">
@@ -151,9 +152,13 @@ export function Section({
               <span aria-hidden className="h-px w-8 bg-canary/40" />
               {eyebrow}
             </p>
-            <h2 id={`${id}-title`} className="mt-4 text-3xl font-semibold tracking-[-0.025em] text-balance sm:text-4xl">
+            <h1
+              id={`${id}-title`}
+              tabIndex={-1}
+              className="mt-4 text-3xl font-semibold tracking-[-0.025em] text-balance focus:outline-hidden sm:text-4xl"
+            >
               {title}
-            </h2>
+            </h1>
             {sub && <p className="mt-4 text-[15px] leading-7 text-fg-muted text-pretty">{sub}</p>}
           </div>
           {aside}

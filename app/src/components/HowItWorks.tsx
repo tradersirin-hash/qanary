@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { t, type Key } from '../copy';
 import { BOUNTY_PROGRAM_ID, RUST_TEST_COUNT, VAULT_PROGRAM_ID } from '../lib/constants';
 import { explorerDevnet } from '../lib/links';
+import { Link, PATHS } from '../lib/router';
 import { Key as KeyIcon, Radar } from './icons';
 import { AddressChip, Card, LiveTag, Section } from './ui';
 
@@ -26,7 +27,7 @@ const STEPS: Step[] = [
     tag: 'howScanTag',
     body: 'howScanBody',
     link: 'howScanLink',
-    href: '#scan',
+    href: PATHS.home,
   },
   {
     n: '02',
@@ -36,7 +37,7 @@ const STEPS: Step[] = [
     tag: 'howVaultTag',
     body: 'howVaultBody',
     link: 'howVaultLink',
-    href: '#vault',
+    href: PATHS.vault,
     program: VAULT_PROGRAM_ID,
   },
   {
@@ -47,7 +48,7 @@ const STEPS: Step[] = [
     tag: 'howBountyTag',
     body: 'howBountyBody',
     link: 'howBountyLink',
-    href: '#bounty',
+    href: PATHS.bounty,
     program: BOUNTY_PROGRAM_ID,
   },
 ];
@@ -64,7 +65,7 @@ export function HowItWorks() {
                 <LiveTag label={s.live} />
               </div>
               <div className="mt-4 grid h-11 w-11 place-items-center rounded-xl bg-canary/10 text-canary ring-1 ring-inset ring-canary/25">{s.icon}</div>
-              <h3 className="mt-4 text-base font-semibold tracking-tight">{t(s.title)}</h3>
+              <h2 className="mt-4 text-base font-semibold tracking-tight">{t(s.title)}</h2>
               <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-canary/80">{t(s.tag)}</p>
               <p className="mt-2 text-sm leading-6 text-fg-muted">{t(s.body)}</p>
               {s.program && (
@@ -72,9 +73,9 @@ export function HowItWorks() {
                   {t('programLabel')} <AddressChip value={s.program} href={explorerDevnet(`address/${s.program}`)} />
                 </div>
               )}
-              <a href={s.href} className="mt-auto inline-flex items-center gap-1 pt-4 text-sm font-medium text-canary transition-all hover:gap-1.5">
+              <Link to={s.href} className="mt-auto inline-flex items-center gap-1 pt-4 text-sm font-medium text-canary transition-all hover:gap-1.5">
                 {t(s.link)} <span aria-hidden>→</span>
-              </a>
+              </Link>
             </Card>
           </li>
         ))}

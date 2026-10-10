@@ -2,6 +2,7 @@ import { t, type Key } from '../copy';
 import { SHOWN_TOKENS } from '../lib/constants';
 import { amount, short, usd } from '../lib/format';
 import { solscan } from '../lib/links';
+import { Link, PATHS } from '../lib/router';
 import type { Authority, ControlRow, ProgramControl, SolanaReport } from '../lib/solana';
 import { AddressChip, Badge, Button, Callout, Card, ResultHeader, type Tone } from './ui';
 
@@ -124,9 +125,9 @@ export function SolanaResult({ report, onScan, busy }: { report: SolanaReport; o
         {exposed && !empty && (
           <p className="mt-5 border-t border-line pt-4 text-sm text-fg-muted">
             {t('bridgeVault')}{' '}
-            <a href="#vault" className="font-medium text-canary hover:underline">
+            <Link to={PATHS.vault} className="font-medium text-canary hover:underline">
               {t('bridgeVaultLink')} <span aria-hidden>→</span>
-            </a>
+            </Link>
           </p>
         )}
         <SourceLine />

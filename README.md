@@ -2,6 +2,8 @@
 
 **The quantum canary for Solana.** See what a quantum computer could take, keep funds behind hash-based post-quantum signatures, and give every program a public on-chain flag that flips once someone proves elliptic-curve keys can be broken.
 
+**Live:** https://qanary.xyz (Scan on mainnet, read-only; Vault and Bounty on devnet)
+
 Every standard Solana address *is* an Ed25519 public key. Google Quantum AI estimated in March 2026 that 256-bit elliptic-curve keys could fall to fewer than 500,000 physical qubits. Solana's core teams plan post-quantum wallets "if the threat becomes credible", but nothing protects users at the app layer today. Qanary does three things:
 
 | Part | What it does | Code |
@@ -40,7 +42,11 @@ cd app && npm install && npm run dev
 cd onchain && bash scripts/wsl-build.sh
 ```
 
-`app/.npmrc` disables install scripts; dependencies are pinned exactly.
+`app/.npmrc` disables install scripts; dependencies are pinned exactly. The web app has one page per part (`/`, `/how`, `/vault`, `/bounty`, `/qday`, `/roadmap`); `app/vercel.json` serves `index.html` for those paths.
+
+## Business model
+
+Scan stays free and the canary flag stays a public good. The plan, none of it live yet: a **Qanary API** for wallets, exchanges and custodians; **Qanary Watchtower**, paid monitoring and alerts for a team's addresses, programs and mints; **quantum-readiness reports** for protocols and treasuries; paid **canary integration** for protocols, multisigs and DAOs once the canary is audited and immutable on mainnet; and **Qanary Vault Pro** with treasury policies, only after an independent audit. Canary alerts will be free for everyone, and a share of paid revenue is meant to top up the bounty pool. See the site's Roadmap page.
 
 ## Honest claims
 

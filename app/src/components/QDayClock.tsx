@@ -77,11 +77,11 @@ export function QDayClock() {
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
-          <h3 className="mb-4 text-base font-semibold tracking-tight">{t('timelineTitle')}</h3>
+          <h2 className="mb-4 text-base font-semibold tracking-tight">{t('timelineTitle')}</h2>
           <Timeline entries={ESTIMATES} />
         </Card>
         <Card>
-          <h3 className="mb-4 text-base font-semibold tracking-tight">{t('deadlinesTitle')}</h3>
+          <h2 className="mb-4 text-base font-semibold tracking-tight">{t('deadlinesTitle')}</h2>
           <Timeline entries={DEADLINES} />
         </Card>
       </div>

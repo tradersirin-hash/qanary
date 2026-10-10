@@ -477,7 +477,7 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
 
         {mode === 'create' && (
           <div>
-            <h3 className="text-base font-semibold tracking-tight">{t('phraseTitle')}</h3>
+            <h2 className="text-base font-semibold tracking-tight">{t('phraseTitle')}</h2>
             <Callout tone="caution" className="mt-3">
               {t('phraseWarn')}
             </Callout>

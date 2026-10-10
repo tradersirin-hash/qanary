@@ -9,8 +9,9 @@ export type CanaryView =
 
 export const knownCanary = (v: CanaryView) => (v.kind === 'live' ? v.state : v.kind === 'error' ? v.last : undefined);
 
-/** The single source of canary state for the stats strip, the vault and the bounty panel. */
-export function useCanary() {
+/** The single source of canary state for the stats strip, the vault and the bounty panel.
+ *  Polls only while `active` (a page that shows canary data is open) and refreshes as soon as it becomes active. */
+export function useCanary(active = true) {
   const [view, setView] = useState<CanaryView>({ kind: 'loading' });
   const refresh = useCallback(async (): Promise<CanaryState | null> => {
     try {
@@ -29,6 +30,7 @@ export function useCanary() {
     }
   }, []);
   useEffect(() => {
+    if (!active) return;
     void refresh();
     const tick = () => {
       if (document.visibilityState === 'visible') void refresh();
@@ -39,6 +41,6 @@ export function useCanary() {
       clearInterval(timer);
       document.removeEventListener('visibilitychange', tick);
     };
-  }, [refresh]);
+  }, [refresh, active]);
   return { view, refresh };
 }

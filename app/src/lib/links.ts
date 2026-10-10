@@ -1,3 +1,5 @@
+/** Public origin; canonical and og:url point here (see index.html). */
+export const SITE_URL = 'https://qanary.xyz';
 /** Fill in only when the GitHub repo is public. Empty hides every repo link. */
 export const REPO_URL = 'https://github.com/tradersirin-hash/qanary';
 export const explorerDevnet = (path: string) => `https://explorer.solana.com/${path}?cluster=devnet`;

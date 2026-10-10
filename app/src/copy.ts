@@ -2,14 +2,22 @@ const copy = {
   tagline: 'The quantum canary for Solana',
 
   // nav + hero
-  navLabel: 'Sections',
+  navLabel: 'Pages',
   navScan: 'Scan',
   navHow: 'How it works',
   navVault: 'Vault',
   navBounty: 'Bounty',
   navQday: 'Q-Day',
+  navRoadmap: 'Roadmap',
   homeLabel: 'Qanary home',
-  skipToScanner: 'Skip to scanner',
+  skipToContent: 'Skip to content',
+  pageSuffix: 'Qanary',
+  pageTitleHome: 'Qanary · The quantum canary for Solana',
+  pageTitleQday: 'Q-Day clock',
+  notFoundEyebrow: 'Error 404',
+  notFoundTitle: 'Page not found',
+  notFoundSub: 'There is no page at this address. The scanner, vault and canary are one click away.',
+  notFoundLink: 'Back to the scanner',
   heroLive: 'Live: Scan on mainnet · Vault and Bounty on devnet',
   heroTitleLead: 'Is your wallet',
   heroTitleEm: 'quantum-exposed?',
@@ -196,7 +204,7 @@ const copy = {
   // Q-Day
   qdayTitle: 'Q-Day clock',
   qdaySub:
-    'How close is a quantum computer that breaks 256-bit elliptic-curve keys? Every number links to its source (checked 9 October 2026).',
+    'How close is a quantum computer that breaks 256-bit elliptic-curve keys? Every number links to its source (checked October 9, 2026).',
   recordLabel: 'Largest elliptic-curve key broken on a quantum computer',
   recordTarget: 'Bitcoin, Ethereum and Solana keys',
   bits: 'bits',
@@ -206,11 +214,11 @@ const copy = {
   deadlinesTitle: 'Migration deadlines',
 
   // errors
-  errCancelled: 'Cancelled in your wallet. Nothing was sent.',
+  errCancelled: 'Canceled in your wallet. Nothing was sent.',
   errFunds: 'Your wallet needs more devnet SOL for this and the fee. Use Get devnet SOL.',
   errProgram: 'The program rejected this transaction. Nothing moved.',
   walletCancelledAfterSign:
-    'Cancelled in your wallet, but one-time key #{n} had already signed this request. To keep that key safe, Qanary can only re-send this exact request until it lands.',
+    'Canceled in your wallet, but one-time key #{n} had already signed this request. To keep that key safe, Qanary can only re-send this exact request until it lands.',
 
   // wallet
   connectWallet: 'Connect wallet',
@@ -291,7 +299,7 @@ const copy = {
   pendingExplain:
     'This one-time key already signed this exact request. For safety it can only send this request; it cannot sign a different one.',
   pendingCreateNote:
-    'This happens when an earlier create was cancelled in the wallet. Re-sending creates the vault with this exact request; no new signature is made.',
+    'This happens when an earlier create was canceled in the wallet. Re-sending creates the vault with this exact request; no new signature is made.',
   pendingOtherWallet: 'This is not the wallet connected now; wallet access will go to the address above.',
   summaryWithdraw: 'withdraw {amount} SOL to {destination}',
   summaryOwnerOff: 'turn off wallet access',
@@ -353,6 +361,52 @@ const copy = {
   watchdogOk: 'Watchdog ran: the honeypot is intact and the canary is alive.',
   watchdogTripped: 'Watchdog tripped the canary: the honeypot balance dropped.',
   canaryInitOk: 'Canary initialized on devnet.',
+
+  // business model
+  modelEyebrow: 'Roadmap',
+  modelTitle: 'Free scanner, public signal, paid tools',
+  modelSub:
+    'Scan stays free and the canary signal stays public. Revenue would come from the tools wallets, protocols and treasuries need around them. Only Scan is live today; the rest is the plan, roughly in the order we intend to offer it.',
+  phaseLive: 'Live',
+  phasePlanned: 'Planned',
+  phaseAfterAudit: 'After audit',
+  pricingLabel: 'Pricing:',
+  tierScanTitle: 'Qanary Scan',
+  tierScanFor: 'For everyone',
+  tierScanBody:
+    'Any Solana or EVM address: is its key public and what sits behind it, plus which keys control Solana programs, mints and accounts. No wallet, no sign-up.',
+  tierScanPrice: 'Free',
+  tierApiTitle: 'Qanary API',
+  tierApiFor: 'For wallets, exchanges and custodians',
+  tierApiBody:
+    "The scan engine as an API. Warn users about an exposed key before they deposit, and check a token's mint, freeze and permanent-delegate keys before listing it.",
+  tierApiPrice: 'Usage-based, with a free tier',
+  tierWatchTitle: 'Qanary Watchtower',
+  tierWatchFor: 'For teams, funds and power users',
+  tierWatchBody:
+    'Continuous monitoring of your addresses, programs and mints. Alerts when an upgrade or mint authority changes hands, a new exposed key takes control, or value piles up behind a single key.',
+  tierWatchPrice: 'Monthly subscription',
+  tierReportTitle: 'Quantum-readiness reports',
+  tierReportFor: 'For protocols, foundations and treasuries',
+  tierReportBody:
+    'A written review of every key that controls a protocol: upgrade, mint and freeze authorities, multisig signers and treasury wallets. What is exposed, what it guards, and what to migrate first.',
+  tierReportPrice: 'Fixed fee per report',
+  tierCanaryTitle: 'Canary integration',
+  tierCanaryFor: 'For protocols, multisigs and DAOs',
+  tierCanaryBody:
+    'Read the canary flag from your own program and close classical paths when it trips, the way Qanary Vault does. The flag is free to read; we help design, integrate and test the switch. Starts once the canary runs audited and immutable on mainnet.',
+  tierCanaryPrice: 'Integration and advisory fee',
+  tierVaultProTitle: 'Qanary Vault Pro',
+  tierVaultProFor: 'For DAOs and treasuries',
+  tierVaultProBody:
+    "Treasury policies on post-quantum vaults: spending limits, time locks and approval by several people. Today's vault has a single signer (one recovery phrase) and runs on devnet only; Pro ships only after an independent audit.",
+  tierVaultProPrice: 'Subscription',
+  modelPublicTitle: 'The signal stays a public good',
+  modelPublicBody:
+    'The on-chain flag is free for any program to read, and canary alerts will be free for everyone. Planned: a share of paid revenue tops up the bounty pool, so the reward for breaking the canary key in public keeps growing.',
+  modelHonestTitle: 'Not live yet',
+  modelHonestBody:
+    'Everything except Scan is planned, with no launch dates promised, and nothing here is for sale today. Anything that holds funds or switches on the canary (Vault Pro, canary integration) waits for an independent audit.',
 
   // footer
   limitsTitle: 'Honest limits',
