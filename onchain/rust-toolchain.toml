@@ -1,0 +1,6 @@
+[toolchain]
+# Host toolchain for tests and IDL generation (programs themselves build with the Solana platform tools).
+# LiteSVM 0.16's Agave 4.x dependencies need Rust >= 1.93.
+channel = "1.99.0"
+components = ["rustfmt","clippy"]
+profile = "minimal"

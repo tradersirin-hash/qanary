@@ -1,0 +1,20 @@
+skip_local_validator = true
+
+[toolchain]
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+qanary_bounty = "HhrtGaEUk6Tar4cdCHkgTZj7jY5YXha4wjfdm8EteXRV"
+qanary_vault = "DoYraMDno33DYCUytDMvdGWWcsNz1Qm983K15pHnzaqu"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "cargo test"
+
+[hooks]

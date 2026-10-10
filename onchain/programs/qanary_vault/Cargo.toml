@@ -1,0 +1,40 @@
+[package]
+name = "qanary_vault"
+version = "0.1.0"
+description = "SOL and SPL token custody behind hash-based post-quantum (LM-OTS) signatures"
+edition.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "qanary_vault"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build", "qanary_bounty/idl-build"]
+anchor-debug = []
+custom-heap = []
+custom-panic = []
+
+
+[dependencies]
+anchor-lang = "1.2.1"
+anchor-spl = "1.2.1"
+qanary_bounty = { path = "../qanary_bounty", features = ["cpi"] }
+# On-chain this uses the sol_sha256 syscall; the sha2 feature only matters for native tests.
+solana-sha256-hasher = { version = "3.1.0", features = ["sha2"] }
+
+[dev-dependencies]
+litesvm = "0.16.0"
+solana-message = "4.2.4"
+solana-transaction = "4.1.5"
+solana-signer = "3.0.1"
+solana-keypair = "3.1.2"
+solana-account = "4.3.0"
+
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }

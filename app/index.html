@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Qanary · The quantum canary for Solana</title>
+    <meta name="description" content="Scan any Solana or EVM address for quantum exposure, hold devnet SOL behind LM-OTS post-quantum signatures, and watch an on-chain canary bounty. Unaudited research on devnet." />
+    <meta name="theme-color" content="#0b0d10" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <link rel="icon" type="image/svg+xml" href="/qanary.svg" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Qanary" />
+    <meta property="og:title" content="Qanary · The quantum canary for Solana" />
+    <meta property="og:description" content="Scan any Solana or EVM address for quantum exposure, hold devnet SOL behind LM-OTS post-quantum signatures, and watch an on-chain canary bounty. Unaudited research on devnet." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Qanary · The quantum canary for Solana" />
+    <meta name="twitter:description" content="Quantum-exposure scanner, post-quantum devnet vault and on-chain canary for Solana. Unaudited research on devnet." />
+    <!-- Once the deployed origin is known: <link rel="canonical" href="https://ORIGIN/"> and <meta property="og:url" content="https://ORIGIN/">.
+         Add og:image + twitter:card=summary_large_image ONLY if public/og.png (1200x630) exists. -->
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet" />
+    <!-- Omit these three if VITE_DEVNET_RPC / VITE_SOLANA_RPC override the hosts -->
+    <link rel="preconnect" href="https://api.devnet.solana.com" crossorigin />
+    <link rel="dns-prefetch" href="https://solana-rpc.publicnode.com" />
+    <link rel="dns-prefetch" href="https://lite-api.jup.ag" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>Qanary needs JavaScript to read public chain data.</noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

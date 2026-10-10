@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+@theme {
+  /* surfaces */
+  --color-ink: #0b0d10;
+  --color-ink-2: #0e1115;
+  --color-panel: #12161c;
+  --color-panel-2: #181d25;
+  --color-line: #232a33;          /* decorative borders, dividers only */
+  --color-line-strong: #323b47;   /* secondary-button borders, timeline rules, meter ticks */
+  --color-field: #5a6473;         /* form-field edges: 3.25:1 ink, 3.03:1 panel */
+
+  /* text */
+  --color-fg: #eceef2;            /* 15.6:1 on panel */
+  --color-fg-muted: #a1a9b5;      /* body copy, 7.65:1 on panel */
+  --color-fg-subtle: #8a93a1;     /* small labels, footnotes, placeholders: 5.85:1 panel, 5.45:1 panel-2 */
+
+  /* brand (never used for warnings) */
+  --color-canary: #ffd23f;
+  --color-canary-hover: #ffdc66;
+  --color-beak: #ff8a00;
+
+  /* semantic */
+  --color-danger: #ff6b6b;
+  --color-caution: #ff9f43;       /* warnings are ORANGE, not amber/yellow */
+  --color-safe: #3ddc97;
+  --color-info: #5cc8ff;
+
+  /* type */
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* shape + depth */
+  --radius-card: 1.125rem;
+  --shadow-card: inset 0 1px 0 0 rgb(255 255 255 / 0.04), 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px -16px rgb(0 0 0 / 0.6);
+  --shadow-glow: 0 0 0 1px rgb(255 210 63 / 0.35), 0 8px 28px -8px rgb(255 210 63 / 0.45);
+
+  /* motion (always used behind motion-safe:) */
+  --animate-sweep: sweep 6s linear infinite;
+  --animate-rise: rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-chain: chain 3.2s ease-in infinite; /* P1 vault art */
+
+  @keyframes sweep { to { transform: rotate(360deg); } }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+  @keyframes chain {
+    0% { transform: translateY(-100%); opacity: 0; }
+    15% { opacity: 1; }
+    100% { transform: translateY(400%); opacity: 0; }
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+  }
+  body {
+    @apply bg-ink font-sans text-fg antialiased;
+  }
+  ::selection {
+    background: rgb(255 210 63 / 0.28);
+    color: #fff;
+  }
+  :where(a, button, input, textarea, select, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-canary);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

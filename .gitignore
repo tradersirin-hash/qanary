@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+
+# Anchor / Rust
+onchain/target/
+onchain/.anchor/
+onchain/test-ledger/
+**/*.rs.bk
+
+# Keys: never commit wallets or program keypairs
+*.json.key
+id.json
+onchain/target/deploy/*-keypair.json
+
+.DS_Store
+Thumbs.db
