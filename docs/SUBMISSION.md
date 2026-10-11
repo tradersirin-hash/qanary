@@ -10,7 +10,7 @@ Qanary is the quantum canary for Solana: a scanner that shows what a quantum com
 
 - Every standard Solana address is an Ed25519 public key, so every wallet's key is public by design.
 - In March 2026 Google Quantum AI estimated that 256-bit elliptic-curve keys could fall to under 500,000 physical qubits, minutes per key. Expert surveys put a cryptographically relevant quantum computer at 28–49% within 10 years.
-- Solana's core teams (Anza, Firedancer) plan post-quantum wallets "if the threat becomes credible". Today users have no app-layer protection, and nobody gets warned when the threat arrives.
+- Solana's core teams (Anza, Firedancer) picked Falcon for future post-quantum wallets but say no change is required today (solana.com, April 2026). Holders cannot see what is exposed, and nobody gets warned when the threat arrives.
 
 ## What we built
 
@@ -22,7 +22,7 @@ The vault reads the canary: an optional Ed25519 owner (off by default, added onl
 
 ## Why it matters
 
-- Real cryptography, not branding: NIST-standardized hash-based signatures, verified on-chain with the `sol_sha256` syscall.
+- Real cryptography, not branding: LM-OTS hash-based signatures (RFC 8554, with a NIST SP 800-208 parameter set), verified on-chain with the `sol_sha256` syscall.
 - Usable today: no protocol change, no special wallet. Phantom pays the fee; the browser signs the post-quantum part.
 - A public good: the canary flag is a primitive any Solana program can read.
 
@@ -66,7 +66,6 @@ Each part has its own page (`/`, `/how`, `/vault`, `/bounty`, `/qday`, `/roadmap
 - The vault protects the funds it holds. Fee payers and other Ed25519 accounts stay classical.
 - The canary cannot stop the first or a silent attacker; until it trips, wallet access is only as safe as the wallet's key.
 - One-time keys must never sign two different messages: signatures are deterministic, the browser blocks conflicting requests, and the program consumes a key on every verified signature. Two devices used at once remain a risk.
-- Reviewed by independent AI agents (two rounds, findings fixed and re-tested); not a professional audit.
 - No quantum computer can break 256-bit elliptic-curve keys today. The public record is a 15-bit key (April 2026).
 
 ## Next

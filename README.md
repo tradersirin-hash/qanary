@@ -4,7 +4,7 @@
 
 **Live:** https://qanary.xyz (Scan on mainnet, read-only; Vault and Bounty on devnet)
 
-Every standard Solana address *is* an Ed25519 public key. Google Quantum AI estimated in March 2026 that 256-bit elliptic-curve keys could fall to fewer than 500,000 physical qubits. Solana's core teams plan post-quantum wallets "if the threat becomes credible", but nothing protects users at the app layer today. Qanary does three things:
+Every standard Solana address *is* an Ed25519 public key. Google Quantum AI estimated in March 2026 that 256-bit elliptic-curve keys could fall to fewer than 500,000 physical qubits. Solana's core teams picked Falcon for future post-quantum wallets but say no change is required today, and nobody gets warned when the threat arrives. Qanary does three things:
 
 | Part | What it does | Code |
 |---|---|---|
