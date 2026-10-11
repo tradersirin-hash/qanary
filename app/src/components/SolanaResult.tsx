@@ -14,18 +14,33 @@ const USD = 'block text-xs text-fg-subtle sm:ml-2 sm:inline sm:text-sm';
 function authorityBadge(authority: Authority | undefined): [Tone, Key] {
   if (authority === undefined) return ['muted', 'vUnknown'];
   if (authority === null) return ['good', 'authNone'];
+  if (authority.multisig) return authority.kind === 'exposed' ? ['bad', 'authMultisigExposed'] : ['warn', 'authMultisigPda'];
   return authority.kind === 'exposed' ? ['bad', 'authExposed'] : ['warn', 'authPda'];
 }
 
-function AuthorityRow({ label, authority }: { label: Key; authority: Authority | undefined }) {
+function AuthorityRow({ label, authority, showAddress = true }: { label: Key; authority: Authority | undefined; showAddress?: boolean }) {
   const [tone, text] = authorityBadge(authority);
+  const multisig = authority?.multisig;
+  const counts = multisig && { m: multisig.m, n: multisig.signers.length };
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line py-3 first:border-t-0">
       <span className="text-sm text-fg-muted">{t(label)}</span>
       <span className="flex flex-wrap items-center gap-2">
-        {authority && <AddressChip value={authority.address} href={solscan(authority.address)} />}
-        <Badge tone={tone} label={text} />
+        {authority && showAddress && <AddressChip value={authority.address} href={solscan(authority.address)} />}
+        <Badge tone={tone} label={text} vars={counts} />
       </span>
+      {multisig && (
+        <div className="flex w-full flex-wrap items-center gap-2 pt-1">
+          <span className="text-xs text-fg-subtle">{t('multisigSigners', counts)}</span>
+          {multisig.signers.map((s, i) => (
+            // A multisig may list the same signer twice; each slot counts on-chain.
+            <span key={`${i}-${s.address}`} className="inline-flex max-w-full flex-wrap items-center gap-1.5">
+              <AddressChip value={s.address} href={solscan(s.address)} />
+              {s.kind === 'pda' && <Badge tone="warn" label="vPda" />}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -154,7 +169,7 @@ export function SolanaResult({ report, onScan, busy }: { report: SolanaReport; o
         <ResultHeader title={report.title} address={report.address} href={solscan(report.address)} tone={tone} verdict={verdict} />
         <p className={`mb-3 ${BODY}`}>{t(report.body)}</p>
         {report.rows.map((row) => (
-          <AuthorityRow key={row.label} label={row.label} authority={row.authority} />
+          <AuthorityRow key={row.label} label={row.label} authority={row.authority} showAddress={row.label !== 'rowSigners'} />
         ))}
         {report.sol !== undefined && report.sol > 0 && <p className="mt-3 font-mono text-sm tabular-nums text-fg-muted">{amount(report.sol)} SOL</p>}
         {report.scanTarget && (

@@ -8,7 +8,7 @@ Every standard Solana address *is* an Ed25519 public key. Google Quantum AI esti
 
 | Part | What it does | Code |
 |---|---|---|
-| **Qanary Scan** | Paste a Solana or EVM address. See whether its key is exposed, how much value sits behind it, and which authorities (upgrade, mint, freeze, permanent delegate, stake withdrawer, ...) are plain Ed25519 keys. Includes a sourced Q-Day clock. | `app/` |
+| **Qanary Scan** | Paste a Solana or EVM address. See whether its key is exposed, how much value sits behind it, and which authorities (upgrade, mint, freeze, permanent delegate, stake withdrawer, ...) are Ed25519 keys, alone or as the signers of an SPL Token multisig. Includes a sourced Q-Day clock. | `app/` |
 | **Qanary Vault** | Holds SOL (the program also handles SPL / Token-2022 tokens, with the exceptions under Honest claims; the web app moves SOL only) behind **LM-OTS one-time signatures** (RFC 8554, NIST SP 800-208 parameter set `LMOTS_SHA256_N24_W8`). Each action is signed by the current one-time key and commits to the next, so keys never repeat while the vault address stays fixed. An optional Ed25519 owner, added only by a post-quantum signature, can withdraw day to day while the canary lives. | `onchain/programs/qanary_vault` |
 | **Qanary Bounty** | The canary: a SOL bounty behind an Ed25519 key that nobody knows the private key of (a nothing-up-my-sleeve point). Claiming it requires breaking Ed25519 and permanently sets a public `tripped` flag. A honeypot balance at the same key also trips the flag once anyone runs the watchdog after it drops. | `onchain/programs/qanary_bounty` |
 

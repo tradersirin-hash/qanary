@@ -16,7 +16,17 @@ const toneClass: Record<Tone, string> = {
 };
 const toneIcon = { bad: AlertTriangle, warn: Branch, good: ShieldCheck, info: Info, muted: Info } as const;
 
-export function Badge({ tone, label, size = 'md' }: { tone: Tone; label: Key; size?: 'md' | 'lg' }) {
+export function Badge({
+  tone,
+  label,
+  vars,
+  size = 'md',
+}: {
+  tone: Tone;
+  label: Key;
+  vars?: Record<string, string | number>;
+  size?: 'md' | 'lg';
+}) {
   const Icon = toneIcon[tone];
   return (
     <span
@@ -27,7 +37,7 @@ export function Badge({ tone, label, size = 'md' }: { tone: Tone; label: Key; si
       )}
     >
       {size === 'lg' ? <Icon className="h-3.5 w-3.5" /> : <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />}
-      {t(label)}
+      {t(label, vars)}
     </span>
   );
 }

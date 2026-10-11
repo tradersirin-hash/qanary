@@ -128,7 +128,7 @@ const copy = {
 
   mintTitle: 'Token mint',
   mintBody:
-    "These keys can mint supply, freeze holders or, for a permanent delegate, move anyone's balance. Plain Ed25519 keys here could be taken over by a quantum attacker.",
+    "These keys can mint supply, freeze holders or, for a permanent delegate, move anyone's balance. Ed25519 keys here, alone or in a multisig, could be taken over by a quantum attacker.",
   tokenAccountTitle: 'Token account',
   tokenAccountBody: 'These keys can move the tokens in this account:',
   stakeTitle: 'Stake account',
@@ -141,6 +141,9 @@ const copy = {
   programDataBody: "This account stores a program's code. Its upgrade authority can replace that code.",
   bufferTitle: 'Program buffer',
   bufferBody: 'A staging account for a program upgrade. Its authority can deploy it.',
+  multisigTitle: 'Token multisig',
+  multisigBody:
+    'An SPL Token multisig. Where it is a mint or token account authority, the token program requires signatures from its signers below and ignores a signature from this address itself, so the signers are what to check.',
   scanOwner: 'Scan owner',
 
   rowOwner: 'Owner',
@@ -166,6 +169,7 @@ const copy = {
   rowNonceAuthority: 'Nonce authority',
   rowUpgradeAuthority: 'Upgrade authority',
   rowBufferAuthority: 'Buffer authority',
+  rowSigners: 'Signers',
 
   accountTitle: 'Program-owned account',
   accountBody: 'A program owns this account. Its safety depends on who can upgrade that program.',
@@ -174,6 +178,9 @@ const copy = {
 
   authExposed: 'Ed25519 key, exposed',
   authPda: 'Program-derived, check its controller',
+  authMultisigExposed: '{m}-of-{n} multisig, Ed25519 signers exposed',
+  authMultisigPda: '{m}-of-{n} multisig, check its signers',
+  multisigSigners: 'Any {m} of these {n} signers can act:',
   authNone: 'None',
 
   evmTitle: 'EVM address',

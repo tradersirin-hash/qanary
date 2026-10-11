@@ -41,8 +41,11 @@ const SMALL_ORDER = new Set<string>(
 /** 'exposed': an Ed25519 point, so a private key exists and the address reveals its public key.
  *  'pda': off the curve, so no private key exists; a program controls it. */
 export type KeyKind = 'exposed' | 'pda';
-/** null means "no authority" (revoked, unset or burned). */
-export type Authority = { address: Address; kind: KeyKind } | null;
+/** An SPL Token multisig: any `m` of its signers can act for it; its own address signs nothing. */
+export type Multisig = { m: number; signers: { address: Address; kind: KeyKind }[] };
+/** null means "no authority" (revoked, unset or burned). For a multisig, `kind` is 'exposed' when
+ *  at least `m` of its signers are Ed25519 keys. */
+export type Authority = { address: Address; kind: KeyKind; multisig?: Multisig } | null;
 /** Who can change a program: an authority, null (immutable), closed, built-in, or undefined (unknown). */
 export type ProgramControl = Authority | 'closed' | 'builtin' | undefined;
 
@@ -84,6 +87,48 @@ function authorityOf(value: unknown): Authority {
   const a = address(value);
   if (SMALL_ORDER.has(a)) return null;
   return { address: a, kind: keyKind(a) };
+}
+
+function multisigOf(info: Record<string, unknown>): Multisig | null {
+  const m = Number(info.numRequiredSigners);
+  const signers = (info.signers as unknown[] | undefined) ?? [];
+  if (info.isInitialized !== true || !Number.isInteger(m) || m < 1 || signers.length < m) return null;
+  const resolved = signers.filter((s): s is string => typeof s === 'string').map((s) => ({ address: address(s), kind: keyKind(address(s)) }));
+  return { m, signers: resolved };
+}
+
+function multisigAuthority(a: Address, multisig: Multisig): Authority {
+  const exposed = multisig.signers.filter((s) => s.kind === 'exposed').length;
+  return { address: a, kind: exposed >= multisig.m ? 'exposed' : 'pda', multisig };
+}
+
+/** Rows whose authority the token program checks with `validate_owner`, which accepts a multisig.
+ *  The token-metadata update authority, and the confidential-transfer authority for UpdateMint and
+ *  ApproveAccount, must sign themselves, so they are left as is. */
+const NO_MULTISIG_ROWS = new Set<Key>(['rowMetadataUpdate', 'rowConfidential']);
+
+/** SPL Token and Token-2022, as deployed on mainnet, accept a multisig account owned by either token program
+ *  wherever they call `validate_owner`: then m of its signers sign instead and the multisig's own signature is
+ *  ignored. Show those signers rather than the multisig's own key. */
+async function resolveMultisigs(rows: ControlRow[]): Promise<ControlRow[]> {
+  const candidates = [...new Set(rows.flatMap((r) => (r.authority && !NO_MULTISIG_ROWS.has(r.label) ? [r.authority.address] : [])))];
+  if (candidates.length === 0) return rows;
+  // A failed lookup would silently fall back to the wrong single-key label, so retry once and then let the
+  // error reach the usual "try again" message.
+  const fetchAccounts = () => rpc.getMultipleAccounts(candidates, { encoding: 'jsonParsed' }).send();
+  const { value } = await fetchAccounts().catch(fetchAccounts);
+  const found = new Map<string, Multisig>();
+  value.forEach((account, i) => {
+    const data = account?.data as { parsed?: { type?: string; info?: Record<string, unknown> } } | unknown[] | undefined;
+    const tokenOwned = account?.owner === TOKEN_PROGRAM || account?.owner === TOKEN_2022_PROGRAM;
+    if (!tokenOwned || !data || Array.isArray(data) || data.parsed?.type !== 'multisig') return;
+    const multisig = multisigOf(data.parsed.info ?? {});
+    if (multisig) found.set(candidates[i], multisig);
+  });
+  return rows.map((r) => {
+    const multisig = r.authority && !NO_MULTISIG_ROWS.has(r.label) ? found.get(r.authority.address) : undefined;
+    return multisig && r.authority ? { ...r, authority: multisigAuthority(r.authority.address, multisig) } : r;
+  });
 }
 
 function base64Bytes(b64: string): Uint8Array {
@@ -302,12 +347,19 @@ export async function scanSolana(input: string): Promise<SolanaReport> {
   if (head.owner === TOKEN_PROGRAM || head.owner === TOKEN_2022_PROGRAM) {
     const parsed = await readParsed(a);
     if (parsed?.type === 'mint') {
-      return { kind: 'controlled', title: 'mintTitle', body: 'mintBody', address: a, rows: mintRows(parsed.info) };
+      return { kind: 'controlled', title: 'mintTitle', body: 'mintBody', address: a, rows: await resolveMultisigs(mintRows(parsed.info)) };
     }
     if (parsed?.type === 'account') {
       return {
         kind: 'controlled', title: 'tokenAccountTitle', body: 'tokenAccountBody', address: a,
-        rows: tokenAccountRows(parsed.info), scanTarget: address(parsed.info.owner as string),
+        rows: await resolveMultisigs(tokenAccountRows(parsed.info)), scanTarget: address(parsed.info.owner as string),
+      };
+    }
+    const multisig = parsed?.type === 'multisig' ? multisigOf(parsed.info) : null;
+    if (multisig) {
+      return {
+        kind: 'controlled', title: 'multisigTitle', body: 'multisigBody', address: a,
+        rows: [{ label: 'rowSigners', authority: multisigAuthority(a, multisig), critical: true }],
       };
     }
   }

@@ -14,7 +14,7 @@ Qanary is the quantum canary for Solana: a scanner that shows what a quantum com
 
 ## What we built
 
-1. **Qanary Scan** (live web app). Paste any Solana or EVM address. It shows whether the key is exposed, the value behind it, and every authority that controls the account: upgrade authority, mint and freeze authority, Token-2022 permanent delegate, stake withdrawer, nonce authority and more. A sourced Q-Day clock tracks attack-cost estimates and migration deadlines.
+1. **Qanary Scan** (live web app). Paste any Solana or EVM address. It shows whether the key is exposed, the value behind it, and every authority that controls the account: upgrade authority, mint and freeze authority, Token-2022 permanent delegate, stake withdrawer, nonce authority and more. When an authority is an SPL Token multisig, it lists the signers and how many must sign. A sourced Q-Day clock tracks attack-cost estimates and migration deadlines.
 2. **Qanary Vault** (Anchor program). SOL and SPL tokens (program-level; the web app moves SOL only) behind LM-OTS one-time signatures (RFC 8554, NIST SP 800-208 parameter set `LMOTS_SHA256_N24_W8`). A signature is 652 bytes, so it fits a normal transaction any wallet can pay for. Each action commits to the next key: keys never repeat, and the vault address never changes. A 24-word phrase is the only secret.
 3. **Qanary Bounty** (Anchor program). A SOL bounty behind an Ed25519 key that nobody knows the private key of (a nothing-up-my-sleeve curve point, reproducible by anyone). Claiming it requires breaking Ed25519 and permanently sets a public `tripped` flag. A honeypot balance at the same key also trips it once the watchdog sees a drop.
 
@@ -52,7 +52,7 @@ Canary alerts will be free for everyone. Planned: a share of paid revenue tops u
 
 Each part has its own page (`/`, `/how`, `/vault`, `/bounty`, `/qday`, `/roadmap`).
 
-1. **Scan** (30 s). Paste a large exchange wallet: "over a billion dollars behind one public key". Paste the USDC mint: mint and freeze authority are plain Ed25519 keys. Open the Q-Day page.
+1. **Scan** (30 s). Paste a large exchange wallet: "over a billion dollars behind one public key". Paste the USDC mint: mint and freeze authority are each a 2-of-4 multisig, and all eight signers are plain Ed25519 keys. Open the Q-Day page.
 2. **Vault** (50 s). Open the Vault page and connect Phantom on devnet. Create a vault: show the 24-word phrase. Deposit 0.5 SOL. Withdraw 0.1 SOL with a post-quantum signature: the explorer shows the transaction, and the vault's key counter moves from 0 to 1.
 3. **Canary** (25 s). On the Bounty page, show the bounty pool and honeypot. Explain: the day someone signs for this key, the flag flips and every vault's classical path closes. Back on the Vault page (the open vault stays loaded), show the wallet-withdraw button disappearing when the canary is tripped (devnet test or recording).
 4. **Roadmap** (15 s). Scan is free; the API, Watchtower, reports and canary integration are how Qanary plans to earn; Vault Pro waits for an audit.
