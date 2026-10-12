@@ -1,6 +1,6 @@
 # Qanary: submission notes
 
-Live: https://qanary.xyz · Code: https://github.com/tradersirin-hash/qanary
+Live: https://qanary.xyz · Code: https://github.com/tradersirin-hash/qanary · X: https://x.com/Qanaryxyz
 
 ## One-liner
 

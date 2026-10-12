@@ -1,7 +1,7 @@
 import { t, type Key } from '../copy';
 import { RECORD } from '../data/qday';
 import { BOUNTY_PROGRAM_ID, CANARY_KEY_ID, VAULT_PROGRAM_ID } from '../lib/constants';
-import { explorerDevnet, REPO_URL, STANDARDS } from '../lib/links';
+import { explorerDevnet, REPO_URL, STANDARDS, X_URL } from '../lib/links';
 import { ArrowUpRight } from './icons';
 import { AddressChip } from './ui';
 
@@ -69,6 +69,12 @@ export function SiteFooter() {
                   </a>
                 </li>
               )}
+              <li>
+                <a href={X_URL} target="_blank" rel="noreferrer" className={LINK}>
+                  {t('xProfile')}
+                  <ArrowUpRight className="h-3 w-3 shrink-0" />
+                </a>
+              </li>
             </ul>
           </div>
         </div>

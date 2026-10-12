@@ -2,6 +2,7 @@
 export const SITE_URL = 'https://qanary.xyz';
 /** Fill in only when the GitHub repo is public. Empty hides every repo link. */
 export const REPO_URL = 'https://github.com/tradersirin-hash/qanary';
+export const X_URL = 'https://x.com/Qanaryxyz';
 export const explorerDevnet = (path: string) => `https://explorer.solana.com/${path}?cluster=devnet`;
 export const solscan = (addr: string) => `https://solscan.io/account/${addr}`;
 export const etherscan = (addr: string) => `https://etherscan.io/address/${addr}`;

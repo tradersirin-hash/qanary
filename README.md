@@ -2,7 +2,7 @@
 
 **The quantum canary for Solana.** See what a quantum computer could take, keep funds behind hash-based post-quantum signatures, and give every program a public on-chain flag that flips once someone proves elliptic-curve keys can be broken.
 
-**Live:** https://qanary.xyz (Scan on mainnet, read-only; Vault and Bounty on devnet)
+**Live:** https://qanary.xyz (Scan on mainnet, read-only; Vault and Bounty on devnet) · **X:** [@Qanaryxyz](https://x.com/Qanaryxyz)
 
 Every standard Solana address *is* an Ed25519 public key. Google Quantum AI estimated in March 2026 that 256-bit elliptic-curve keys could fall to fewer than 500,000 physical qubits. Solana's core teams picked Falcon for future post-quantum wallets but say no change is required today, and nobody gets warned when the threat arrives. Qanary does three things:
 

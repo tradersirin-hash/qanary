@@ -433,6 +433,7 @@ const copy = {
   stdSp: 'NIST SP 800-208 · Stateful hash-based signatures',
   stdIr: 'NIST IR 8547 · Transition to post-quantum cryptography (draft)',
   sourceCode: 'Source code',
+  xProfile: 'Qanary on X',
   footerBar: 'Unaudited research code · devnet only · never send real funds',
   builtFor: 'Built for the Colosseum hackathon',
 };
