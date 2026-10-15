@@ -44,7 +44,7 @@ cd app && npm install && npm run dev
 cd onchain && bash scripts/wsl-build.sh
 ```
 
-`app/.npmrc` disables install scripts; dependencies are pinned exactly. The web app has one page per part (`/`, `/how`, `/vault`, `/bounty`, `/qday`, `/roadmap`); `app/vercel.json` serves `index.html` for those paths.
+`app/.npmrc` disables install scripts; dependencies are pinned exactly. The web app has one page per part (`/`, `/how`, `/vault`, `/bounty`, `/qday`, `/roadmap`); `app/vercel.json` serves `index.html` for those paths and sets the security headers. Its Content-Security-Policy allows scripts only from the site itself and network requests only to the listed RPC and price hosts, so injected code could not send a recovery phrase anywhere else; a new RPC host (for example through `VITE_SOLANA_RPC` or `VITE_DEVNET_RPC`) must be added to `connect-src` there. `npm test` runs the app's unit tests.
 
 ## Business model
 
