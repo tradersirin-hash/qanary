@@ -20,4 +20,10 @@ pub enum VaultError {
     NotOwner,
     #[msg("The quantum canary has been tripped; only post-quantum signatures can move funds")]
     CanaryTripped,
+    #[msg("Destination must be passed as writable")]
+    DestinationNotWritable,
+    #[msg("Mint is not owned by the given token program")]
+    TokenProgramMismatch,
+    #[msg("Tokens must be withdrawn from the vault's associated token account")]
+    NotVaultTokenAccount,
 }

@@ -30,7 +30,9 @@ Every standard Solana address *is* an Ed25519 public key. Google Quantum AI esti
 - **Unhijackable address.** The vault address is derived from its id *and* key 0, and new vaults start with no classical owner. A front-runner can only create the exact vault the user asked for.
 - **One recovery phrase.** A 24-word BIP-39 phrase derives the vault id and the LM-OTS seed (RFC 8554 Appendix A key derivation). Signatures are deterministic, so retrying a request yields identical bytes on any device; the browser refuses to sign a different request with a key that is still pending, and refuses to sign at all if site storage is blocked.
 - **Canary key.** `4H3XvrAPRRJuSaTZJt3XSRpEVPCPKJjWy69jDkx1VNwZ` = 8 · decompress(SHA-256("Qanary canary v1: nobody knows the private key of this point" ‖ 0x01)). Reproduce it with `onchain/scripts/canary_key.py`; `tests/test_canary_key.rs` re-derives it with curve25519-dalek.
-- **Cross-checked.** The Rust verifier and the TypeScript signer share known-answer tests, including a message and signature produced by the browser and verified by the program.
+- **Cross-checked.** The Rust verifier and the TypeScript signer share known-answer tests, including a message and signature produced by the browser and verified by the program. Both also reproduce the independent RFC 9858 Test Case 1 (LMS_SHA256_M24_H5 with LMOTS_SHA256_N24_W8) byte for byte: the signer regenerates the published signature from its seed, and the verifier recovers the published public key.
+- **A verified signature always consumes its key.** Whatever the signed message fixes, or what other people or time can change (a closed, frozen or paused account, a memo-required destination), is checked only after the signature verifies; a request that cannot run is skipped with an `ActionSkipped` event and a reason code. Accounts the message does not fix (the token program, the vault's associated token account) are checked before it, so whoever submits the transaction cannot burn the key with wrong ones.
+- **Keys per cluster.** The phrase derives different vault ids and one-time keys on each cluster, so it never signs with the same one-time key on devnet and mainnet. Devnet keeps the original derivation.
 
 ## Run it
 
@@ -55,7 +57,7 @@ Scan stays free and the canary flag stays a public good. The plan, none of it li
 - On devnet both programs are upgradeable by a classical (Ed25519) deployer key, so a key-breaker could replace them. Before mainnet the bounty must be made immutable and the vault's upgrade authority handed to a post-quantum-governed program.
 - The deployed devnet bytecode matches our own local build by hash. That is not a reproducible "verified build".
 - Two devices signing *different* requests with the same pending one-time key would weaken it; use one device at a time.
-- Token withdrawals can fail after the one-time key has signed, and are not supported, for mints with a transfer hook, NonTransferable or Pausable extensions, and for destinations that require memos. The web app only moves SOL.
+- Token withdrawals are not supported for mints with a transfer hook, the NonTransferable extension or a paused Pausable config, or into destinations that require memos or accept only confidential credits. The program skips such a request (the one-time key is consumed, nothing moves) instead of failing. Tokens must sit in the vault's associated token account. The web app only moves SOL.
 - Qanary Scan reads through third-party public RPC endpoints (and Jupiter's price API), which can see which addresses are looked up.
 - No quantum computer can break 256-bit elliptic-curve keys today. The public record is a 15-bit key (April 2026).
 - The programs are unaudited research code running on devnet. Do not use them with real funds.

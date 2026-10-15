@@ -65,11 +65,12 @@ pub fn handle_withdraw_token(ctx: Context<WithdrawToken>, amount: u64) -> Result
     require!(amount > 0, VaultError::ZeroAmount);
     super::pq::transfer_tokens(
         &ctx.accounts.vault,
-        &ctx.accounts.vault_tokens,
-        &ctx.accounts.mint,
-        &ctx.accounts.destination,
+        ctx.accounts.vault_tokens.to_account_info(),
+        ctx.accounts.mint.to_account_info(),
+        ctx.accounts.destination.to_account_info(),
         &ctx.accounts.token_program,
         amount,
+        ctx.accounts.mint.decimals,
     )?;
     emit!(Withdrawn {
         vault: ctx.accounts.vault.key(),

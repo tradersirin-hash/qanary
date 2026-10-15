@@ -61,7 +61,7 @@ Each part has its own page (`/`, `/how`, `/vault`, `/bounty`, `/qday`, `/roadmap
 
 - Unaudited; devnet only. Both programs are still upgradeable by a classical (Ed25519) deployer key.
 - The devnet bytecode matches our own local build by hash; that is not a reproducible "verified build".
-- Token withdrawals can fail after signing, and are not supported, for mints with a transfer hook, NonTransferable or Pausable extensions, and for destinations that require memos. The web app only moves SOL.
+- Token withdrawals are not supported for mints with a transfer hook, NonTransferable or a paused Pausable config, or into destinations that require memos or accept only confidential credits; the program skips such a request (the key is consumed, nothing moves). Tokens must sit in the vault's associated token account. The web app only moves SOL.
 - The scanner reads through third-party public RPC endpoints (and Jupiter's price API), which can see which addresses are looked up.
 - The vault protects the funds it holds. Fee payers and other Ed25519 accounts stay classical.
 - The canary cannot stop the first or a silent attacker; until it trips, wallet access is only as safe as the wallet's key.

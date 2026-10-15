@@ -8,7 +8,7 @@ use {
     qanary_bounty::{CANARY_KEY, CANARY_SEED},
     qanary_vault::{
         lmots::{self, signer},
-        state::{Action, Vault},
+        state::{skip, Action, Vault},
         VAULT_SEED,
     },
     solana_account::Account,
@@ -28,6 +28,8 @@ struct Env {
     payer: Keypair,
     owner: Keypair,
     vault: Pubkey,
+    /// Logs of the last successful transaction.
+    logs: Vec<String>,
 }
 
 fn key(q: u32) -> lmots::Hash {
@@ -71,7 +73,7 @@ impl Env {
         svm.airdrop(&payer.pubkey(), 100 * SOL).unwrap();
         svm.airdrop(&owner.pubkey(), SOL).unwrap();
         let vault = vault_pda(&ID, &key(0));
-        let mut env = Env { svm, payer, owner, vault };
+        let mut env = Env { svm, payer, owner, vault, logs: vec![] };
 
         env.send(
             &[Instruction::new_with_bytes(
@@ -111,9 +113,16 @@ impl Env {
         let mut signers: Vec<&Keypair> = vec![&self.payer];
         signers.extend_from_slice(extra);
         let tx = Transaction::new(&signers, Message::new(ixs, Some(&self.payer.pubkey())), self.svm.latest_blockhash());
-        let res = self.svm.send_transaction(tx).map(|m| m.compute_units_consumed).map_err(|e| format!("{:?}", e.err));
+        let res = self.svm.send_transaction(tx).map_err(|e| format!("{:?}", e.err));
         self.svm.expire_blockhash();
-        res
+        res.map(|m| {
+            self.logs = m.logs;
+            m.compute_units_consumed
+        })
+    }
+
+    fn skipped(&self) -> Option<u8> {
+        skip_reason(&self.logs)
     }
 
     fn state(&self) -> Vault {
@@ -133,10 +142,24 @@ impl Env {
     }
 
     fn pq_withdraw_sol(&mut self, signature: Vec<u8>, destination: Pubkey, amount: u64, next_key: lmots::Hash) -> Result<u64, String> {
+        self.pq_withdraw_sol_meta(signature, destination, amount, next_key, true)
+    }
+
+    /// The program does not mark the destination `mut` (see `PqWithdrawSol`), so clients pass it writable.
+    fn pq_withdraw_sol_meta(
+        &mut self,
+        signature: Vec<u8>,
+        destination: Pubkey,
+        amount: u64,
+        next_key: lmots::Hash,
+        writable: bool,
+    ) -> Result<u64, String> {
+        let mut metas = qanary_vault::accounts::PqWithdrawSol { vault: self.vault, destination }.to_account_metas(None);
+        metas[1].is_writable = writable;
         let ix = Instruction::new_with_bytes(
             qanary_vault::id(),
             &qanary_vault::instruction::PqWithdrawSol { signature, amount, next_key }.data(),
-            qanary_vault::accounts::PqWithdrawSol { vault: self.vault, destination }.to_account_metas(None),
+            metas,
         );
         self.send(&[cu_limit(1_400_000), ix], &[])
     }
@@ -229,10 +252,13 @@ fn verified_but_unpayable_requests_still_consume_the_key() {
 
     // More than the vault holds: verified, skipped, key rotated.
     env.withdraw(dest, 1_000 * SOL).expect("skipped, not failed");
+    assert_eq!(env.skipped(), Some(skip::AMOUNT));
     // Zero.
     env.withdraw(dest, 0).expect("skipped, not failed");
+    assert_eq!(env.skipped(), Some(skip::AMOUNT));
     // A brand-new destination that would end up below rent.
     env.withdraw(dest, 1_000).expect("skipped, not failed");
+    assert_eq!(env.skipped(), Some(skip::RENT));
 
     assert_eq!(env.nonce(), 3);
     assert_eq!(env.balance(&dest), 0);
@@ -240,7 +266,7 @@ fn verified_but_unpayable_requests_still_consume_the_key() {
 
     // The chain keeps working.
     env.withdraw(dest, SOL).expect("key 3 works");
-    assert_eq!(env.balance(&dest), SOL);
+    assert_eq!((env.balance(&dest), env.skipped()), (SOL, None));
 }
 
 #[test]
@@ -292,4 +318,75 @@ fn pq_key_can_remove_the_classical_owner() {
     assert_eq!(env.state().owner, None);
     let owner = env.owner.insecure_clone();
     assert!(env.classic_withdraw_sol(&owner, Pubkey::new_unique(), SOL).is_err(), "owner removed");
+}
+
+#[test]
+fn destinations_that_cannot_receive_are_skipped_after_the_key_is_consumed() {
+    let mut env = Env::new(false);
+    let before = env.balance(&env.vault.clone());
+    // Sysvars, programs and reserved keys (some neither executable nor sysvar-owned, some with no
+    // account at all): the runtime never credits them, so the request is skipped.
+    let cannot_receive = [
+        anchor_lang::pubkey!("SysvarC1ock11111111111111111111111111111111"),
+        qanary_vault::id(),
+        anchor_lang::pubkey!("StakeConfig11111111111111111111111111111111"),
+        anchor_lang::pubkey!("Sysvar1111111111111111111111111111111111111"),
+        anchor_lang::pubkey!("NativeLoader1111111111111111111111111111111"),
+        system_program::ID,
+    ];
+    for (i, dest) in cannot_receive.iter().enumerate() {
+        env.withdraw(*dest, SOL).unwrap_or_else(|e| panic!("{dest} skipped, not failed: {e}"));
+        assert_eq!(env.skipped(), Some(skip::DESTINATION), "{dest}");
+        assert_eq!(env.nonce(), i as u32 + 1);
+    }
+    assert_eq!(env.balance(&env.vault.clone()), before);
+}
+
+#[test]
+fn reserved_keys_match_agave() {
+    let ours: std::collections::BTreeSet<String> = qanary_vault::RESERVED_KEYS.iter().map(|k| k.to_string()).collect();
+    let agave: std::collections::BTreeSet<String> =
+        agave_reserved_account_keys::ReservedAccountKeys::all_keys_iter().map(|k| k.to_string()).collect();
+    assert_eq!(ours.len(), qanary_vault::RESERVED_KEYS.len(), "no duplicates");
+    assert_eq!(ours, agave);
+}
+
+#[test]
+fn a_read_only_destination_fails_before_the_key_and_a_writable_resend_works() {
+    let mut env = Env::new(false);
+    let dest = Pubkey::new_unique();
+    let sig = env.sign(0, &key(1), &Action::WithdrawSol { destination: dest, amount: SOL });
+    // Whoever submits controls the account flags, so a read-only destination must not burn the key.
+    assert!(env.pq_withdraw_sol_meta(sig.clone(), dest, SOL, key(1), false).is_err());
+    assert_eq!(env.nonce(), 0);
+    env.pq_withdraw_sol(sig, dest, SOL, key(1)).expect("same signed bytes, writable");
+    assert_eq!((env.nonce(), env.balance(&dest)), (1, SOL));
+}
+
+/// The `ActionSkipped` reason in a transaction's logs, if the program emitted one.
+fn skip_reason(logs: &[String]) -> Option<u8> {
+    use anchor_lang::{AnchorDeserialize, Discriminator};
+    fn b64(s: &str) -> Vec<u8> {
+        let val = |c: u8| match c {
+            b'A'..=b'Z' => c - b'A',
+            b'a'..=b'z' => c - b'a' + 26,
+            b'0'..=b'9' => c - b'0' + 52,
+            b'+' => 62,
+            _ => 63,
+        };
+        let digits: Vec<u8> = s.bytes().filter(|&c| c != b'=').map(val).collect();
+        digits
+            .chunks(4)
+            .flat_map(|c| {
+                let n = c.iter().enumerate().fold(0u32, |n, (i, &d)| n | (d as u32) << (18 - 6 * i));
+                n.to_be_bytes()[1..c.len()].to_vec()
+            })
+            .collect()
+    }
+    logs.iter().filter_map(|l| l.strip_prefix("Program data: ")).map(b64).find_map(|d| {
+        let disc = qanary_vault::state::ActionSkipped::DISCRIMINATOR;
+        (d.len() > disc.len() && &d[..disc.len()] == disc)
+            .then(|| qanary_vault::state::ActionSkipped::try_from_slice(&d[disc.len()..]).ok().map(|e| e.reason))
+            .flatten()
+    })
 }

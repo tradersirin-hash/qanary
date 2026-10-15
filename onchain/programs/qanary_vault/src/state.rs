@@ -106,8 +106,8 @@ pub struct Withdrawn {
     pub post_quantum: bool,
 }
 
-/// A verified post-quantum request that could not run (zero amount, not enough funds, rent, frozen
-/// account). Its one-time key is still consumed, so the key chain stays usable.
+/// A verified post-quantum request that could not run. Its one-time key is still consumed, so the key
+/// chain stays usable.
 #[event]
 pub struct ActionSkipped {
     pub vault: Pubkey,
@@ -115,4 +115,21 @@ pub struct ActionSkipped {
     pub nonce: u32,
     pub requested: u64,
     pub available: u64,
+    /// One of the [`skip`] codes.
+    pub reason: u8,
+}
+
+/// Why a verified request was skipped (`ActionSkipped::reason`).
+pub mod skip {
+    /// Zero, or more than the vault can pay out.
+    pub const AMOUNT: u8 = 1;
+    /// A brand-new SOL destination would be left below the rent-exempt minimum.
+    pub const RENT: u8 = 2;
+    /// The destination cannot take it: a reserved key, program or sysvar, or a token account that is
+    /// closed, frozen, for another mint, requires memos or accepts only confidential credits.
+    pub const DESTINATION: u8 = 3;
+    /// The vault's token account for this mint is missing or frozen.
+    pub const VAULT_TOKENS: u8 = 4;
+    /// The mint does not exist (or was closed), or it is paused, non-transferable or has a transfer hook.
+    pub const MINT: u8 = 5;
 }
