@@ -6,6 +6,7 @@ import { t, type Key } from '../copy';
 import { friendlyError, isRejection, UserFacingError } from '../lib/errors';
 import { amount, exactSol, short } from '../lib/format';
 import * as lmots from '../lib/lmots';
+import { quizPassed, quizPositions } from '../lib/phraseQuiz';
 import { explorerDevnet } from '../lib/links';
 import {
   canaryAddress,
@@ -134,6 +135,9 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
   const [mode, setMode] = useState<Mode>('idle');
   const [phrase, setPhrase] = useState('');
   const [saved, setSaved] = useState(false);
+  /** Word positions (0-based) the user must type back from their written copy, and what they typed. */
+  const [quiz, setQuiz] = useState<number[]>([]);
+  const [answers, setAnswers] = useState<string[]>([]);
   const [allowWallet, setAllowWallet] = useState(false);
   const [keys, setKeys] = useState<VaultKeys | null>(null);
   const [vault, setVault] = useState<VaultState | null>(null);
@@ -189,6 +193,9 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
   const startCreate = () => {
     setPhrase(generateMnemonic(wordlist, 256));
     setSaved(false);
+    const positions = quizPositions(24);
+    setQuiz(positions);
+    setAnswers(positions.map(() => ''));
     setAllowWallet(false);
     setCreatePending(null);
     setMode('create');
@@ -481,20 +488,55 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
             <Callout tone="caution" className="mt-3">
               {t('phraseWarn')}
             </Callout>
-            <ol className="mt-4 grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-4">
-              {phrase.split(' ').map((word, i) => (
-                <li key={i} className="flex items-center gap-2 rounded-lg bg-ink/60 px-2.5 py-2 font-mono text-[13px] ring-1 ring-inset ring-line">
-                  <span aria-hidden className="w-5 text-right tabular-nums text-fg-subtle">
-                    {i + 1}
-                  </span>
-                  {word}
-                </li>
-              ))}
-            </ol>
+            {!saved && (
+              <ol className="mt-4 grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-4">
+                {phrase.split(' ').map((word, i) => (
+                  <li key={i} className="flex items-center gap-2 rounded-lg bg-ink/60 px-2.5 py-2 font-mono text-[13px] ring-1 ring-inset ring-line">
+                    <span aria-hidden className="w-5 text-right tabular-nums text-fg-subtle">
+                      {i + 1}
+                    </span>
+                    {word}
+                  </li>
+                ))}
+              </ol>
+            )}
             <label className="mt-5 flex items-start gap-2.5 text-sm text-fg">
               <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} className="mt-1 h-4 w-4 shrink-0 accent-canary" />
               {t('phraseSaved')}
             </label>
+            {saved && (
+              <fieldset className="mt-4 rounded-xl bg-ink/40 p-4 ring-1 ring-inset ring-line">
+                <legend className="px-1 text-sm font-semibold text-fg">{t('quizTitle')}</legend>
+                <p className="text-sm leading-6 text-fg-muted">{t('quizBody')}</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  {quiz.map((position, i) => {
+                    const typed = answers[i] ?? '';
+                    const wrong = typed.trim() !== '' && !quizPassed(phrase, [position], [typed]);
+                    return (
+                      <label key={position} className="text-xs font-medium text-fg-muted">
+                        {t('quizWord', { n: position + 1 })}
+                        <input
+                          value={typed}
+                          onChange={(e) => setAnswers((a) => a.map((x, j) => (j === i ? e.target.value : x)))}
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          autoComplete="off"
+                          aria-invalid={wrong}
+                          className={cn(
+                            'mt-1 w-full rounded-lg border bg-ink/60 px-3 py-2 font-mono text-sm text-fg focus:outline-hidden focus:ring-4',
+                            wrong ? 'border-red-400/70 focus:ring-red-400/15' : 'border-field focus:border-canary focus:ring-canary/15',
+                          )}
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+                <button type="button" className="mt-3 text-xs font-medium text-canary hover:underline" onClick={() => setSaved(false)}>
+                  {t('quizShowAgain')}
+                </button>
+              </fieldset>
+            )}
             <label className="mt-3 flex items-start gap-2.5 text-sm text-fg-muted">
               <input
                 type="checkbox"
@@ -510,7 +552,7 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
             <div className="mt-5 flex flex-wrap items-center gap-3">
               <Button
                 variant="primary"
-                disabled={!saved || !account || !!busy || !!createPending}
+                disabled={!saved || !quizPassed(phrase, quiz, answers) || !account || !!busy || !!createPending}
                 loading={busy === 'create'}
                 onClick={() => void create()}
               >

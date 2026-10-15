@@ -256,6 +256,10 @@ const copy = {
   phraseWarn:
     "These 24 words are the only key to this vault. Anyone with them controls it; lose them and the funds are gone. Qanary keeps them only in this page's memory and never saves or sends them. Write them down offline, in order.",
   phraseSaved: 'I wrote down all 24 words, in order',
+  quizTitle: 'Check your copy',
+  quizBody: 'The words are hidden now. Type these ones from what you wrote down: the phrase is the only way back into the vault.',
+  quizWord: 'Word #{n}',
+  quizShowAgain: 'Show the words again',
   allowWallet: 'Also let my connected wallet withdraw while the canary lives (optional, less safe)',
   allowWalletRisk:
     "Convenient, but until someone trips the canary this path is only as safe as your wallet's Ed25519 key. An attacker who breaks that key does not have to trip the canary first.",
