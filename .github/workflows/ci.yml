@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main, mainnet-prep]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      # app/.npmrc sets ignore-scripts, so no dependency runs code at install time.
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  # The LM-OTS verifier and signer tests, including the RFC 9858 vectors, run natively. The program
+  # tests (LiteSVM) need the SBF build (bash onchain/scripts/wsl-build.sh) and run locally for now.
+  verifier:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: onchain
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: cargo test -p qanary_vault --lib --test test_rfc9858 --locked
