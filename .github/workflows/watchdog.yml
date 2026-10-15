@@ -2,11 +2,17 @@ name: Canary watchdog
 
 # Every 30 minutes: read the devnet canary and honeypot. If the honeypot dropped below its baseline, trip the
 # canary on-chain (check_honeypot is permissionless) and open an issue. GitHub runs scheduled workflows only
-# from the default branch, and pauses them after 60 days without commits; "Run workflow" starts one by hand.
+# from the default branch, and pauses them after 60 days without commits; "Run workflow" starts one by hand,
+# and its "force check" box sends check_honeypot even when nothing dropped, to test the fee-payer key.
 on:
   schedule:
     - cron: '7,37 * * * *'
   workflow_dispatch:
+    inputs:
+      force_check:
+        description: Send check_honeypot even if nothing dropped (tests the fee-payer key; it only refreshes the baseline)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -40,6 +46,7 @@ jobs:
           # Optional: a devnet key that only pays fees. Without it the watchdog asks for a devnet airdrop,
           # which is often rate limited; the alert below is opened either way.
           WATCHDOG_KEYPAIR: ${{ secrets.WATCHDOG_KEYPAIR }}
+          FORCE_CHECK: ${{ inputs.force_check && '1' || '' }}
       - name: Open an alert issue
         if: steps.check.outputs.status != 'alive'
         env:

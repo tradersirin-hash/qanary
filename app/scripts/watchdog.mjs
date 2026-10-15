@@ -8,6 +8,8 @@
 // Fee payer: the WATCHDOG_KEYPAIR secret if set (a JSON array of 64 secret-key bytes, or 64 hex chars of a
 // 32-byte seed); otherwise a throwaway key funded by a devnet airdrop at the moment it is needed.
 // Writes status=alive|drained|tripped|missing (and details) to $GITHUB_OUTPUT for the workflow's alert step.
+// A forced check that cannot send (say, a malformed WATCHDOG_KEYPAIR) fails the run; a real drop never does,
+// so the alert step still opens the issue.
 import { appendFileSync } from 'node:fs';
 import { sha256 } from '@noble/hashes/sha2';
 import {
@@ -68,7 +70,8 @@ async function feePayer() {
   const secret = process.env.WATCHDOG_KEYPAIR?.trim();
   if (secret) {
     if (/^[0-9a-f]{64}$/i.test(secret)) return createKeyPairSignerFromPrivateKeyBytes(Buffer.from(secret, 'hex'));
-    return createKeyPairSignerFromBytes(Uint8Array.from(JSON.parse(secret)));
+    if (/^\[[\d,\s]+\]$/.test(secret)) return createKeyPairSignerFromBytes(Uint8Array.from(JSON.parse(secret)));
+    throw new Error('WATCHDOG_KEYPAIR is neither 64 hex characters nor a JSON array of 64 bytes');
   }
   const signer = await generateKeyPairSigner();
   let lastError;
@@ -106,7 +109,7 @@ async function checkHoneypot(canary) {
   const signature = getSignatureFromTransaction(tx);
   await rpc.sendTransaction(getBase64EncodedWireTransaction(tx), { encoding: 'base64' }).send();
   await confirm(signature);
-  return signature;
+  return { signature, payer: signer.address };
 }
 
 const [canary] = await getProgramDerivedAddress({ programAddress: BOUNTY_PROGRAM, seeds: [new TextEncoder().encode('canary')] });
@@ -119,9 +122,10 @@ if (!state) {
   // FORCE_CHECK=1 exercises the transaction path while nothing dropped: it only refreshes the baseline.
   const drained = state.balance < state.baseline;
   let tx = '';
+  let payer = '';
   let error = '';
   try {
-    tx = await checkHoneypot(canary);
+    ({ signature: tx, payer } = await checkHoneypot(canary));
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
   }
@@ -133,8 +137,10 @@ if (!state) {
     balance: state.balance,
     baseline: state.baseline,
     tx,
+    payer,
     error,
   });
+  if (error && !drained) process.exitCode = 1;
 } else {
   report({ status: 'alive', canary, balance: state.balance, baseline: state.baseline });
 }
