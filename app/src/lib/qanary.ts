@@ -23,7 +23,7 @@ import {
   type Address,
   type Instruction,
 } from '@solana/kit';
-import { BOUNTY_PROGRAM_ID, CANARY_KEY_ID, VAULT_PROGRAM_ID } from './constants';
+import { BOUNTY_PROGRAM_ID, CANARY_KEY_ID, CLUSTER, VAULT_PROGRAM_ID, type Cluster } from './constants';
 import * as lmots from './lmots';
 import { signAndSend, type StandardWallet, type WalletAccount } from './wallet';
 
@@ -86,11 +86,17 @@ export type VaultKeys = { id: Uint8Array; seed: Uint8Array; genesisKey: Uint8Arr
 const normalize = (phrase: string) => phrase.trim().toLowerCase().split(/\s+/).join(' ');
 export const isValidPhrase = (phrase: string) => validateMnemonic(normalize(phrase), wordlist);
 
+/** Suffix of the derivation tags per cluster. One phrase must never sign with the same one-time key on
+ *  two clusters: a second signature by an LM-OTS key lets anyone forge with it. Devnet keeps the
+ *  original, unsuffixed tags so existing devnet vaults still open from the same phrase. */
+const CLUSTER_TAG: Record<Cluster, string> = { devnet: '', mainnet: '/mainnet' };
+
 /** The 24-word phrase is the only secret: it yields the vault id, the LM-OTS seed and so every key. */
-export function deriveKeys(phrase: string): VaultKeys {
+export function deriveKeys(phrase: string, cluster: Cluster = CLUSTER): VaultKeys {
   const master = mnemonicToSeedSync(normalize(phrase));
-  const id = sha256(concat(text.encode('qanary/vault-id/v1'), master)).slice(0, lmots.ID_LEN);
-  const seed = sha256(concat(text.encode('qanary/lmots-seed/v1'), master)).slice(0, lmots.N);
+  const tag = CLUSTER_TAG[cluster];
+  const id = sha256(concat(text.encode(`qanary/vault-id/v1${tag}`), master)).slice(0, lmots.ID_LEN);
+  const seed = sha256(concat(text.encode(`qanary/lmots-seed/v1${tag}`), master)).slice(0, lmots.N);
   return { id, seed, genesisKey: lmots.publicKey(id, 0, seed) };
 }
 
@@ -182,6 +188,42 @@ export async function bountyDeployed(): Promise<boolean> {
 
 // ---------- request validation (before any one-time key signs) ----------
 
+/** Keys the runtime never write-locks (agave-reserved-account-keys). Mirrors `RESERVED_KEYS` in the vault
+ *  program, which skips them; qanary.test.ts checks the two lists match. */
+export const RESERVED_KEYS: ReadonlySet<string> = new Set([
+  'AddressLookupTab1e1111111111111111111111111',
+  'BPFLoader2111111111111111111111111111111111',
+  'BPFLoader1111111111111111111111111111111111',
+  'BPFLoaderUpgradeab1e11111111111111111111111',
+  'ComputeBudget111111111111111111111111111111',
+  'Config1111111111111111111111111111111111111',
+  'Ed25519SigVerify111111111111111111111111111',
+  'Feature111111111111111111111111111111111111',
+  'LoaderV411111111111111111111111111111111111',
+  'KeccakSecp256k11111111111111111111111111111',
+  'Secp256r1SigVerify1111111111111111111111111',
+  'StakeConfig11111111111111111111111111111111',
+  'Stake11111111111111111111111111111111111111',
+  '11111111111111111111111111111111',
+  'Vote111111111111111111111111111111111111111',
+  'ZkE1Gama1Proof11111111111111111111111111111',
+  'ZkTokenProof1111111111111111111111111111111',
+  'SysvarC1ock11111111111111111111111111111111',
+  'SysvarEpochRewards1111111111111111111111111',
+  'SysvarEpochSchedu1e111111111111111111111111',
+  'SysvarFees111111111111111111111111111111111',
+  'Sysvar1nstructions1111111111111111111111111',
+  'SysvarLastRestartS1ot1111111111111111111111',
+  'SysvarRecentB1ockHashes11111111111111111111',
+  'SysvarRent111111111111111111111111111111111',
+  'SysvarRewards111111111111111111111111111111',
+  'SysvarS1otHashes111111111111111111111111111',
+  'SysvarS1otHistory11111111111111111111111111',
+  'SysvarStakeHistory1111111111111111111111111',
+  'NativeLoader1111111111111111111111111111111',
+  'Sysvar1111111111111111111111111111111111111',
+]);
+
 export type WithdrawCheck = { ok: true; lamports: bigint; destination: Address } | { ok: false; reason: 'amount' | 'balance' | 'destination' | 'rent' };
 
 /** Rejects requests the program would not execute, so a one-time key is never spent on them. */
@@ -190,7 +232,7 @@ export async function checkWithdraw(vault: VaultState, amountInput: string, dest
   if (lamports === null || lamports === 0n) return { ok: false, reason: 'amount' };
   if (lamports > vault.spendable) return { ok: false, reason: 'balance' };
   const dest = destinationInput.trim();
-  if (!isAddress(dest) || dest === vault.address) return { ok: false, reason: 'destination' };
+  if (!isAddress(dest) || dest === vault.address || RESERVED_KEYS.has(dest)) return { ok: false, reason: 'destination' };
   const destination = address(dest);
   const account = await readAccount(destination);
   if (account?.executable || account?.owner === 'Sysvar1111111111111111111111111111111111111') return { ok: false, reason: 'destination' };
