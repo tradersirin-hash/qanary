@@ -9,9 +9,16 @@ edition = "2021"
 rust-version = "1.89.0"
 
 [profile.release]
+# Program accounts pay rent per byte, so optimize for size: about 12 KB (0.06 SOL) less for the bounty.
+opt-level = "z"
 overflow-checks = true
 lto = "fat"
 codegen-units = 1
+# Except the vault's LM-OTS verifier: at "z", "s" or 1 its worst case grows from ~0.9M to ~1.25-1.36M of
+# the 1.4M compute units, over the 1.2M that the_verifier_fits_the_compute_limit_even_at_maximum_work
+# allows. 2 keeps ~0.9M and is smaller than 3.
+[profile.release.package.qanary_vault]
+opt-level = 2
 [profile.release.build-override]
 opt-level = 3
 incremental = false

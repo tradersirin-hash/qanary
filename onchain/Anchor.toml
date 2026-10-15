@@ -10,9 +10,19 @@ skip-lint = false
 qanary_bounty = "HhrtGaEUk6Tar4cdCHkgTZj7jY5YXha4wjfdm8EteXRV"
 qanary_vault = "DoYraMDno33DYCUytDMvdGWWcsNz1Qm983K15pHnzaqu"
 
+# Same keypairs (target/deploy/*-keypair.json), so the same ids, on every cluster.
+[programs.devnet]
+qanary_bounty = "HhrtGaEUk6Tar4cdCHkgTZj7jY5YXha4wjfdm8EteXRV"
+qanary_vault = "DoYraMDno33DYCUytDMvdGWWcsNz1Qm983K15pHnzaqu"
+
+[programs.mainnet]
+qanary_bounty = "HhrtGaEUk6Tar4cdCHkgTZj7jY5YXha4wjfdm8EteXRV"
+qanary_vault = "DoYraMDno33DYCUytDMvdGWWcsNz1Qm983K15pHnzaqu"
+
 [provider]
 cluster = "localnet"
-wallet = "~/.config/solana/id.json"
+# A devnet-only key, never the default id.json. Mainnet deploys go through scripts/deploy-mainnet.sh.
+wallet = "~/.config/solana/qanary-devnet.json"
 
 [scripts]
 test = "cargo test"

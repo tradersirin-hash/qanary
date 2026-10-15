@@ -390,7 +390,8 @@ fn the_verifier_fits_the_compute_limit_even_at_maximum_work() {
     let worst = c1 + per_step * (f64::from(26u32 * 255) - w1);
     println!("verifier: {w0} steps = {c0} CU, {w1} steps = {c1} CU, {per_step:.1} CU/step, worst case ~{worst:.0} CU");
     assert!(w1 > w0, "the two randomizers must differ in work");
-    assert!(worst < 1_400_000.0 * 0.9, "worst-case verification needs ~{worst:.0} CU");
+    // 1.2M of the 1.4M limit: the margin the release profile in Cargo.toml is chosen to keep.
+    assert!(worst <= 1_200_000.0, "worst-case verification needs ~{worst:.0} CU");
 }
 
 /// The `ActionSkipped` reason in a transaction's logs, if the program emitted one.

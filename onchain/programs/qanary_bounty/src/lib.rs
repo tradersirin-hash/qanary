@@ -21,6 +21,25 @@ pub use state::*;
 
 declare_id!("HhrtGaEUk6Tar4cdCHkgTZj7jY5YXha4wjfdm8EteXRV");
 
+/// Where to report vulnerabilities, embedded in the binary in the format of neodyme-labs/solana-security-txt
+/// so explorers can show it. Left out of `no-entrypoint` builds: a program that links this one as a
+/// dependency would otherwise carry a second copy and a duplicate symbol.
+#[cfg(not(feature = "no-entrypoint"))]
+#[cfg_attr(target_os = "solana", link_section = ".security.txt")]
+#[allow(dead_code)]
+#[no_mangle]
+pub static SECURITY_TXT: &str = concat!(
+    "=======BEGIN SECURITY.TXT V1=======\0",
+    "name\0Qanary Bounty\0",
+    "project_url\0https://qanary.xyz\0",
+    "contacts\0link:https://github.com/tradersirin-hash/qanary/security/advisories/new,link:https://x.com/Qanaryxyz\0",
+    "policy\0https://github.com/tradersirin-hash/qanary/blob/main/SECURITY.md\0",
+    "preferred_languages\0en\0",
+    "source_code\0https://github.com/tradersirin-hash/qanary\0",
+    "auditors\0None\0",
+    "=======END SECURITY.TXT V1=======\0",
+);
+
 #[program]
 pub mod qanary_bounty {
     use super::*;
