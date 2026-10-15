@@ -1,0 +1,68 @@
+name: Canary watchdog
+
+# Every 30 minutes: read the devnet canary and honeypot. If the honeypot dropped below its baseline, trip the
+# canary on-chain (check_honeypot is permissionless) and open an issue. GitHub runs scheduled workflows only
+# from the default branch, and pauses them after 60 days without commits; "Run workflow" starts one by hand.
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: canary-watchdog
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      # app/.npmrc sets ignore-scripts, so no dependency runs code at install time.
+      - run: npm ci
+      - id: check
+        run: node scripts/watchdog.mjs
+        env:
+          # Optional: a devnet key that only pays fees. Without it the watchdog asks for a devnet airdrop,
+          # which is often rate limited; the alert below is opened either way.
+          WATCHDOG_KEYPAIR: ${{ secrets.WATCHDOG_KEYPAIR }}
+      - name: Open an alert issue
+        if: steps.check.outputs.status != 'alive'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          STATUS: ${{ steps.check.outputs.status }}
+          CANARY: ${{ steps.check.outputs.canary }}
+          BALANCE: ${{ steps.check.outputs.balance }}
+          BASELINE: ${{ steps.check.outputs.baseline }}
+          TX: ${{ steps.check.outputs.tx }}
+          ERROR: ${{ steps.check.outputs.error }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create canary --color FFD23F --description "Canary watchdog alerts" --force
+          if [ "$(gh issue list --label canary --state open --json number --jq length)" != "0" ]; then
+            echo "An open canary alert already exists."
+            exit 0
+          fi
+          case "$STATUS" in
+            tripped) summary="The devnet canary is tripped. Every vault's classical path is closed." ;;
+            drained) summary="The honeypot fell below its baseline, but the watchdog could not trip the canary: $ERROR. Run the watchdog check on https://qanary.xyz/bounty." ;;
+            *) summary="The canary account could not be read (status: $STATUS)." ;;
+          esac
+          body=$(printf '%s\n\n- Canary: %s\n- Honeypot: %s lamports (baseline %s)\n- Watchdog transaction: %s\n- Run: %s\n' \
+            "$summary" "$CANARY" "$BALANCE" "$BASELINE" "${TX:-none}" "$RUN")
+          gh issue create --label canary --title "Canary watchdog: $STATUS" --body "$body"
