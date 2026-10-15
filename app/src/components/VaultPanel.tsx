@@ -209,16 +209,16 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
   };
 
   /** Signs a request with the vault's current one-time key and builds its instruction. */
-  const pqInstruction = (v: VaultState, k: VaultKeys, request: SignedRequest) => {
+  const pqInstruction = async (v: VaultState, k: VaultKeys, request: SignedRequest) => {
     const nextKey = lmots.publicKey(k.id, v.nonce + 1, k.seed);
     if (request.kind === 'withdrawSol') {
       const dest = address(request.destination);
       const value = BigInt(request.amount);
-      const signature = oneTimeSignature(k, v.address, v.nonce, withdrawSolMessage(v.address, v.nonce, nextKey, dest, value), request);
+      const signature = await oneTimeSignature(k, v, withdrawSolMessage(v.address, v.nonce, nextKey, dest, value), request);
       return pqWithdrawSolIx(v.address, dest, signature, value, nextKey);
     }
     const owner = request.owner ? address(request.owner) : null;
-    const signature = oneTimeSignature(k, v.address, v.nonce, setOwnerMessage(v.address, v.nonce, nextKey, owner), request);
+    const signature = await oneTimeSignature(k, v, setOwnerMessage(v.address, v.nonce, nextKey, owner), request);
     return pqSetOwnerIx(v.address, signature, owner, nextKey);
   };
 
@@ -236,7 +236,7 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
     if (request) {
       // Key 0 adds the wallet as owner in the same transaction; the program never accepts an unsigned owner.
       const fresh: VaultState = { address: vaultAddr, id: k.id, genesisKey: k.genesisKey, key: k.genesisKey, nonce: 0, owner: null, lamports: 0n, spendable: 0n };
-      ixs.push(pqInstruction(fresh, k, request));
+      ixs.push(await pqInstruction(fresh, k, request));
     }
     try {
       const sig = await send(wallet!, account!, ixs, stepOf(approveIndex)(go));
@@ -319,7 +319,7 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
   const signAndSendPq = async (v: VaultState, request: SignedRequest, go: (i: number) => void) => {
     go(1);
     await paint();
-    const ix = pqInstruction(v, keys!, request);
+    const ix = await pqInstruction(v, keys!, request);
     try {
       return await send(wallet!, account!, [computeLimitIx(PQ_COMPUTE_UNITS), ix], stepOf(2)(go));
     } catch (e) {
@@ -379,7 +379,7 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
     return run('resend', [t('stepCheck'), approveLabel, t('stepConfirm')], async (go) => {
       const v = await freshVault();
       if (v.nonce !== nonce) return { tone: 'success', text: t('pendingLanded', { n: nonce }) };
-      const tx = await send(wallet!, account!, [computeLimitIx(PQ_COMPUTE_UNITS), pqInstruction(v, keys!, request)], stepOf(1)(go));
+      const tx = await send(wallet!, account!, [computeLimitIx(PQ_COMPUTE_UNITS), await pqInstruction(v, keys!, request)], stepOf(1)(go));
       const text =
         request.kind === 'withdrawSol'
           ? t('withdrawPqOk', { amount: sol(BigInt(request.amount)), n: v.nonce, next: v.nonce + 1 })

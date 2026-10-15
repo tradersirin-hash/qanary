@@ -261,7 +261,8 @@ const copy = {
     "Convenient, but until someone trips the canary this path is only as safe as your wallet's Ed25519 key. An attacker who breaks that key does not have to trip the canary first.",
   vaultExisted: 'This vault already existed with your key; it is now open.',
   foreignOwner: 'Wallet access on this vault belongs to a different wallet. Remove it with a post-quantum signature before depositing.',
-  oneDevice: 'Use one device at a time: two devices signing different requests with the same one-time key would weaken it.',
+  oneDevice:
+    "Before signing, the app checks this browser (across tabs) and the vault's recent on-chain history for a request the current one-time key already signed. Two devices signing different requests at the same moment, before either lands, would still weaken it: use one device at a time.",
   badAmount: 'Enter a positive SOL amount with at most 9 decimals.',
   badBalance: 'That is more than the vault can spend.',
   badDestination: 'Enter a valid wallet address (not the vault, a program or a sysvar).',

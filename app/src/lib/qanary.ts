@@ -14,6 +14,7 @@ import {
   getAddressDecoder,
   getAddressEncoder,
   getBase58Decoder,
+  getBase58Encoder,
   getProgramDerivedAddress,
   getTransactionEncoder,
   isAddress,
@@ -383,9 +384,22 @@ export class KeyAlreadyUsed extends Error {
   }
 }
 
+/** The current key signed a request this app cannot re-send (a token withdrawal from another client). */
+export class KeyUsedElsewhere extends Error {
+  constructor(readonly nonce: number) {
+    super(`One-time key #${nonce} already signed a token withdrawal from another app. Finish that request there: signing a different one would weaken the key.`);
+  }
+}
+
 export class StorageUnavailable extends Error {
   constructor() {
     super('This browser blocks site storage, so post-quantum signing is disabled: a retry could otherwise reuse a one-time key.');
+  }
+}
+
+export class LocksUnavailable extends Error {
+  constructor() {
+    super('This browser cannot lock signing across tabs (Web Locks), so post-quantum signing is disabled. Update the browser and try again.');
   }
 }
 
@@ -413,25 +427,128 @@ function assertStorage() {
   }
 }
 
+const TAG_WITHDRAW_SOL = toHex(ixTag('pq_withdraw_sol'));
+const TAG_WITHDRAW_TOKEN = toHex(ixTag('pq_withdraw_token'));
+const TAG_SET_OWNER = toHex(ixTag('pq_set_owner'));
+
+const withdrawTokenMessage = (vault: Address, nonce: number, nextKey: Uint8Array, mint: Address, destination: Address, amount: bigint) =>
+  concat(header(2, vault, nonce, nextKey), bytes(mint), bytes(destination), u64le(amount));
+
+/** An instruction as it appears in a landed transaction. */
+export type SeenInstruction = { program: string; accounts: string[]; data: Uint8Array };
+/** A request the vault's current key signed, found on-chain. `request` is null for token withdrawals. */
+export type SeenSignature = { message: Uint8Array; signature: Uint8Array; request: SignedRequest | null };
+
 /**
- * Returns the signature for (vault, nonce, message), creating it at most once. An LM-OTS key must
- * never sign two different messages: a different request for the same key throws `KeyAlreadyUsed`
- * until the first one lands (the on-chain nonce then moves on). Signatures are deterministic, so
- * an identical request yields identical bytes even on another device. Different requests from two
- * devices for the same key are the remaining risk: use one device at a time.
+ * Finds an instruction carrying a valid signature by the vault's current key (`vault.nonce`). Decodes each
+ * post-quantum instruction, rebuilds the message it signs and checks it with LM-OTS against `vault.key`, so
+ * signatures by older keys and malformed or forged data are ignored.
  */
-export function oneTimeSignature(keys: VaultKeys, vault: Address, nonce: number, message: Uint8Array, request: SignedRequest): Uint8Array {
-  assertStorage();
-  const slot = `${PENDING_PREFIX}${vault}:${nonce}`;
-  const stored = memoryPending.get(slot) ?? (JSON.parse(localStorage.getItem(slot) ?? 'null') as Pending | null);
-  const messageHex = toHex(message);
-  if (stored) {
-    if (stored.message !== messageHex) throw new KeyAlreadyUsed(nonce, stored.request);
-    return fromHex(stored.signature);
+export function signedByCurrentKey(instructions: SeenInstruction[], vault: VaultState): SeenSignature | null {
+  for (const ix of instructions) {
+    const d = ix.data;
+    if (ix.program !== VAULT_PROGRAM || ix.accounts[0] !== vault.address || d.length < 12) continue;
+    const view = new DataView(d.buffer, d.byteOffset, d.byteLength);
+    if (view.getUint32(8, true) !== lmots.SIG_LEN || d.length < 12 + lmots.SIG_LEN) continue;
+    const tag = toHex(d.slice(0, 8));
+    const signature = d.slice(12, 12 + lmots.SIG_LEN);
+    const args = d.slice(12 + lmots.SIG_LEN);
+    const argView = new DataView(args.buffer, args.byteOffset, args.byteLength);
+    let seen: Omit<SeenSignature, 'signature'> | null = null;
+    if (tag === TAG_WITHDRAW_SOL && args.length === 8 + lmots.N && ix.accounts.length >= 2) {
+      const amount = argView.getBigUint64(0, true);
+      const destination = address(ix.accounts[1]);
+      seen = {
+        message: withdrawSolMessage(vault.address, vault.nonce, args.slice(8), destination, amount),
+        request: { kind: 'withdrawSol', destination, amount: amount.toString() },
+      };
+    } else if (tag === TAG_SET_OWNER && (args.length === 1 + lmots.N || args.length === 33 + lmots.N)) {
+      const owner = args[0] === 1 && args.length === 33 + lmots.N ? addrDec.decode(args.slice(1, 33)) : null;
+      if (args[0] !== (owner ? 1 : 0)) continue;
+      seen = { message: setOwnerMessage(vault.address, vault.nonce, args.slice(owner ? 33 : 1), owner), request: { kind: 'setOwner', owner } };
+    } else if (tag === TAG_WITHDRAW_TOKEN && args.length === 8 + lmots.N && ix.accounts.length >= 4) {
+      const amount = argView.getBigUint64(0, true);
+      const message = withdrawTokenMessage(vault.address, vault.nonce, args.slice(8), address(ix.accounts[1]), address(ix.accounts[3]), amount);
+      seen = { message, request: null };
+    }
+    if (!seen) continue;
+    const key = lmots.candidatePublicKey(vault.id, vault.nonce, seen.message, signature);
+    if (key && toHex(key) === toHex(vault.key)) return { ...seen, signature };
   }
-  const signature = lmots.signDeterministic(keys.id, nonce, keys.seed, message);
-  const record: Pending = { message: messageHex, signature: toHex(signature), request };
+  return null;
+}
+
+/** How far back to look for a landed request by the current key. Successful ones rotate it, so only
+ *  failed ones can still carry it; another device's failed attempt shows up here. */
+const HISTORY_DEPTH = 25;
+
+type JsonTransaction = {
+  transaction: { message: { accountKeys: string[]; instructions: { programIdIndex: number; accounts: number[]; data: string }[] } };
+  meta: { loadedAddresses?: { writable: string[]; readonly: string[] } } | null;
+};
+
+/** A request the current key already signed in a transaction that landed (and failed), from any device. */
+async function signedOnChain(vault: VaultState): Promise<SeenSignature | null> {
+  const history = await devnet.getSignaturesForAddress(vault.address, { limit: HISTORY_DEPTH }).send();
+  const base58 = getBase58Encoder();
+  for (const entry of history) {
+    if (!entry.err) continue;
+    const tx = (await devnet
+      .getTransaction(entry.signature, { encoding: 'json', maxSupportedTransactionVersion: 0 })
+      .send()) as unknown as JsonTransaction | null;
+    if (!tx) continue;
+    const loaded = tx.meta?.loadedAddresses;
+    const keys = [...tx.transaction.message.accountKeys, ...(loaded?.writable ?? []), ...(loaded?.readonly ?? [])];
+    const instructions = tx.transaction.message.instructions.map((ix) => ({
+      program: keys[ix.programIdIndex],
+      accounts: ix.accounts.map((i) => keys[i]),
+      data: new Uint8Array(base58.encode(ix.data)),
+    }));
+    const seen = signedByCurrentKey(instructions, vault);
+    if (seen) return seen;
+  }
+  return null;
+}
+
+function remember(slot: string, record: Pending) {
   memoryPending.set(slot, record);
   localStorage.setItem(slot, JSON.stringify(record));
-  return signature;
+}
+
+/**
+ * Returns the signature for `request` by the vault's current one-time key, creating it at most once. An
+ * LM-OTS key must never sign two different messages, so:
+ * - a lock held across every tab of this site makes check-then-sign atomic;
+ * - a request this browser already signed with the key is the only one it will sign again;
+ * - a request another device signed and that landed (and failed) is found on-chain and verified, and
+ *   becomes the only one this browser will sign too.
+ * A different request then throws `KeyAlreadyUsed` (or `KeyUsedElsewhere`) until the first one lands and
+ * the nonce moves on. Signatures are deterministic, so the same request yields the same bytes anywhere.
+ * The remaining risk is two devices signing different requests while neither has landed yet.
+ */
+export async function oneTimeSignature(keys: VaultKeys, vault: VaultState, message: Uint8Array, request: SignedRequest): Promise<Uint8Array> {
+  assertStorage();
+  if (!('locks' in navigator) || !navigator.locks) throw new LocksUnavailable();
+  const slot = `${PENDING_PREFIX}${vault.address}:${vault.nonce}`;
+  return navigator.locks.request(slot, async () => {
+    const stored = memoryPending.get(slot) ?? (JSON.parse(localStorage.getItem(slot) ?? 'null') as Pending | null);
+    const messageHex = toHex(message);
+    if (stored) {
+      if (stored.message !== messageHex) throw new KeyAlreadyUsed(vault.nonce, stored.request);
+      return fromHex(stored.signature);
+    }
+    const seen = await signedOnChain(vault);
+    if (seen) {
+      if (toHex(seen.message) === messageHex) {
+        remember(slot, { message: messageHex, signature: toHex(seen.signature), request });
+        return seen.signature;
+      }
+      if (!seen.request) throw new KeyUsedElsewhere(vault.nonce);
+      remember(slot, { message: toHex(seen.message), signature: toHex(seen.signature), request: seen.request });
+      throw new KeyAlreadyUsed(vault.nonce, seen.request);
+    }
+    const signature = lmots.signDeterministic(keys.id, vault.nonce, keys.seed, message);
+    remember(slot, { message: messageHex, signature: toHex(signature), request });
+    return signature;
+  });
 }
