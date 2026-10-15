@@ -363,6 +363,36 @@ fn a_read_only_destination_fails_before_the_key_and_a_writable_resend_works() {
     assert_eq!((env.nonce(), env.balance(&dest)), (1, SOL));
 }
 
+#[test]
+fn the_verifier_fits_the_compute_limit_even_at_maximum_work() {
+    // Verification cost grows with the hash-chain steps (verify_work), which the randomizer C sets. Send
+    // the cheapest and the dearest of 512 randomizers, then extrapolate linearly to the worst case any
+    // signature can need: 26 chains of 255 steps.
+    let mut env = Env::new(false);
+    let dest = Pubkey::new_unique();
+    let mut points = vec![];
+    for dearest in [false, true] {
+        let q = env.nonce();
+        let message = Action::WithdrawSol { destination: dest, amount: SOL }.message(&env.vault, q, &key(q + 1));
+        let candidates = (0..512u16).map(|i| {
+            let mut c = [0u8; lmots::N];
+            c[..2].copy_from_slice(&i.to_be_bytes());
+            c
+        });
+        let work = |c: &lmots::Hash| lmots::verify_work(&ID, q, &message, c);
+        let c = if dearest { candidates.max_by_key(work) } else { candidates.min_by_key(work) }.unwrap();
+        let sig = signer::sign(&ID, q, &SEED, &message, &c);
+        let cu = env.pq_withdraw_sol(sig, dest, SOL, key(q + 1)).expect("pq withdraw");
+        points.push((f64::from(work(&c)), cu as f64));
+    }
+    let ((w0, c0), (w1, c1)) = (points[0], points[1]);
+    let per_step = (c1 - c0) / (w1 - w0);
+    let worst = c1 + per_step * (f64::from(26u32 * 255) - w1);
+    println!("verifier: {w0} steps = {c0} CU, {w1} steps = {c1} CU, {per_step:.1} CU/step, worst case ~{worst:.0} CU");
+    assert!(w1 > w0, "the two randomizers must differ in work");
+    assert!(worst < 1_400_000.0 * 0.9, "worst-case verification needs ~{worst:.0} CU");
+}
+
 /// The `ActionSkipped` reason in a transaction's logs, if the program emitted one.
 fn skip_reason(logs: &[String]) -> Option<u8> {
     use anchor_lang::{AnchorDeserialize, Discriminator};

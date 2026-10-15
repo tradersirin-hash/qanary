@@ -8,4 +8,4 @@ export const CLUSTER: Cluster = 'devnet';
 /** How many tokens the wallet card lists; only these get a symbol lookup. */
 export const SHOWN_TOKENS = 8;
 /** Rust tests passing in `onchain/` (`bash scripts/wsl-build.sh`); keep in sync with the suite. 0 hides the line. */
-export const RUST_TEST_COUNT = 32;
+export const RUST_TEST_COUNT = 35;

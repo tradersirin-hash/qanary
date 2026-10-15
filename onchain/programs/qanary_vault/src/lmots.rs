@@ -185,4 +185,77 @@ mod tests {
         let d = digits(&q);
         assert_eq!(u16::from_be_bytes([d[N], d[N + 1]]), 24 * 255);
     }
+
+    /// xorshift64*: deterministic, so a failure reproduces from its iteration number.
+    struct Rng(u64);
+    impl Rng {
+        fn next(&mut self) -> u64 {
+            self.0 ^= self.0 >> 12;
+            self.0 ^= self.0 << 25;
+            self.0 ^= self.0 >> 27;
+            self.0.wrapping_mul(0x2545_f491_4f6c_dd1d)
+        }
+        fn below(&mut self, n: usize) -> usize {
+            (self.next() % n as u64) as usize
+        }
+        fn bytes(&mut self, len: usize) -> Vec<u8> {
+            (0..len).map(|_| self.next() as u8).collect()
+        }
+        fn array<const L: usize>(&mut self) -> [u8; L] {
+            self.bytes(L).try_into().unwrap()
+        }
+    }
+
+    #[test]
+    fn random_keys_and_messages_sign_and_verify_and_any_flipped_bit_breaks_it() {
+        let mut rng = Rng(0x5eed_0f_9a_ab);
+        for round in 0..64 {
+            let id: [u8; ID_LEN] = rng.array();
+            let seed: Hash = rng.array();
+            let c: Hash = rng.array();
+            let q = rng.next() as u32;
+            let len = rng.below(300);
+            let message = rng.bytes(len);
+            let k = public_key(&id, q, &seed);
+            let sig = sign(&id, q, &seed, &message, &c);
+            assert!(verify(&id, q, &message, &sig, &k), "round {round}");
+            assert!(verify_work(&id, q, &message, &c) <= (P as u32) * u32::from(MAX_DIGIT));
+
+            let mut bad = sig.clone();
+            let bit = rng.below(SIG_LEN * 8);
+            bad[bit / 8] ^= 1 << (bit % 8);
+            assert!(!verify(&id, q, &message, &bad, &k), "round {round}: signature bit {bit}");
+
+            let mut other = message.clone();
+            if other.is_empty() {
+                other.push(0);
+            } else {
+                let bit = rng.below(other.len() * 8);
+                other[bit / 8] ^= 1 << (bit % 8);
+            }
+            assert!(!verify(&id, q, &other, &sig, &k), "round {round}: message");
+
+            let mut other_id = id;
+            other_id[rng.below(ID_LEN)] ^= 1 << rng.below(8);
+            assert!(!verify(&other_id, q, &message, &sig, &k), "round {round}: id");
+            assert!(!verify(&id, q ^ (1 << rng.below(32)), &message, &sig, &k), "round {round}: key index");
+        }
+    }
+
+    #[test]
+    fn arbitrary_bytes_never_panic_or_verify() {
+        let mut rng = Rng(0xbad_5_19);
+        let k = public_key(&ID, 3, &SEED);
+        for _ in 0..500 {
+            let len = if rng.below(2) == 0 { SIG_LEN } else { rng.below(2 * SIG_LEN) };
+            let mut junk = rng.bytes(len);
+            if len >= 4 && rng.below(2) == 0 {
+                junk[..4].copy_from_slice(&LMOTS_TYPE.to_be_bytes());
+            }
+            let len = rng.below(64);
+            let message = rng.bytes(len);
+            let _ = candidate_public_key(&ID, rng.next() as u32, &message, &junk);
+            assert!(!verify(&ID, 3, &message, &junk, &k));
+        }
+    }
 }
