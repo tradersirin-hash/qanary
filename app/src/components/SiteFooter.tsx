@@ -1,15 +1,17 @@
-import { t, type Key } from '../copy';
+import { DEPLOYMENT, t, tOn, type Key } from '../copy';
 import { RECORD } from '../data/qday';
-import { BOUNTY_PROGRAM_ID, CANARY_KEY_ID, VAULT_PROGRAM_ID } from '../lib/constants';
-import { explorerDevnet, REPO_URL, STANDARDS, X_URL } from '../lib/links';
+import type { Cluster } from '../lib/cluster';
+import { BOUNTY_PROGRAM_ID, CANARY_CLUSTER, CANARY_KEY_ID, VAULT_CLUSTER, VAULT_PROGRAM_ID } from '../lib/constants';
+import { explorer, REPO_URL, STANDARDS, X_URL } from '../lib/links';
 import { ArrowUpRight } from './icons';
 import { AddressChip } from './ui';
 
-const PROGRAMS: { label: Key; id: string }[] = [
-  { label: 'vaultProgram', id: VAULT_PROGRAM_ID },
-  { label: 'bountyProgram', id: BOUNTY_PROGRAM_ID },
-  { label: 'canaryKey', id: CANARY_KEY_ID },
+const PROGRAMS: { label: Key; id: string; cluster: Cluster }[] = [
+  { label: 'vaultProgram', id: VAULT_PROGRAM_ID, cluster: VAULT_CLUSTER },
+  { label: 'bountyProgram', id: BOUNTY_PROGRAM_ID, cluster: CANARY_CLUSTER },
+  { label: 'canaryKey', id: CANARY_KEY_ID, cluster: CANARY_CLUSTER },
 ];
+const SPLIT = CANARY_CLUSTER !== VAULT_CLUSTER;
 
 const COLUMN_TITLE = 'font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-fg-subtle';
 const LINK = 'inline-flex items-center gap-1 text-fg-muted hover:text-canary';
@@ -30,20 +32,21 @@ export function SiteFooter() {
               <li>{t('limit1')}</li>
               <li>{t('limit2', { bits: RECORD.bits })}</li>
               <li>{t('limit3')}</li>
-              <li>{t('limit4')}</li>
+              <li>{DEPLOYMENT.limit4}</li>
               <li>{t('oneDevice')}</li>
               <li>{t('limit6')}</li>
             </ul>
           </div>
 
           <div className="min-w-0">
-            <h2 className={COLUMN_TITLE}>{t('programsTitle')}</h2>
+            <h2 className={COLUMN_TITLE}>{DEPLOYMENT.programsTitle}</h2>
             <dl className="mt-4 space-y-4">
               {PROGRAMS.map((p) => (
                 <div key={p.id}>
-                  <dt className="text-xs text-fg-muted">{t(p.label)}</dt>
+                  {/* On one cluster the column title names it; split across clusters, each entry does. */}
+                  <dt className="text-xs text-fg-muted">{SPLIT ? tOn(p.cluster, 'programOn', { program: t(p.label) }) : t(p.label)}</dt>
                   <dd className="mt-1">
-                    <AddressChip full value={p.id} href={explorerDevnet(`address/${p.id}`)} />
+                    <AddressChip full value={p.id} href={explorer(p.cluster, `address/${p.id}`)} />
                   </dd>
                 </div>
               ))}
@@ -80,7 +83,7 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-12 flex flex-wrap justify-between gap-3 border-t border-line/60 pt-5 text-xs text-fg-subtle">
-          <p>{t('footerBar')}</p>
+          <p>{DEPLOYMENT.footerBar}</p>
           <p>{t('builtFor')}</p>
         </div>
       </div>

@@ -1,5 +1,5 @@
-// Client for the Qanary Vault and Qanary Bounty programs on devnet: PDAs, account decoding,
-// instruction encoding (Anchor layout), request validation and wallet-signed sends.
+// Client for the Qanary Vault and Qanary Bounty programs, each on its configured cluster: PDAs, account
+// decoding, instruction encoding (Anchor layout), request validation and wallet-signed sends.
 import { sha256 } from '@noble/hashes/sha2';
 import { mnemonicToSeedSync, validateMnemonic } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
@@ -10,7 +10,6 @@ import {
   compileTransaction,
   createSolanaRpc,
   createTransactionMessage,
-  devnet as devnetCluster,
   getAddressDecoder,
   getAddressEncoder,
   getBase58Decoder,
@@ -24,11 +23,19 @@ import {
   type Address,
   type Instruction,
 } from '@solana/kit';
-import { BOUNTY_PROGRAM_ID, CANARY_KEY_ID, CLUSTER, VAULT_PROGRAM_ID, type Cluster } from './constants';
+import type { Cluster } from './cluster';
+import { BOUNTY_PROGRAM_ID, CANARY_CLUSTER, CANARY_KEY_ID, NETWORKS, VAULT_CLUSTER, VAULT_PROGRAM_ID } from './constants';
 import * as lmots from './lmots';
 import { signAndSend, type StandardWallet, type WalletAccount } from './wallet';
 
-export const devnet = createSolanaRpc(devnetCluster(import.meta.env.VITE_DEVNET_RPC || 'https://api.devnet.solana.com'));
+const connect = (url: string) => createSolanaRpc(url);
+const clients = new Map<Cluster, ReturnType<typeof connect>>();
+/** One RPC client per cluster, so the vault and the canary share it when they run on the same cluster. */
+export function rpc(cluster: Cluster) {
+  let client = clients.get(cluster);
+  if (!client) clients.set(cluster, (client = connect(NETWORKS[cluster].rpc)));
+  return client;
+}
 
 export const VAULT_PROGRAM = address(VAULT_PROGRAM_ID);
 export const BOUNTY_PROGRAM = address(BOUNTY_PROGRAM_ID);
@@ -93,7 +100,7 @@ export const isValidPhrase = (phrase: string) => validateMnemonic(normalize(phra
 const CLUSTER_TAG: Record<Cluster, string> = { devnet: '', mainnet: '/mainnet' };
 
 /** The 24-word phrase is the only secret: it yields the vault id, the LM-OTS seed and so every key. */
-export function deriveKeys(phrase: string, cluster: Cluster = CLUSTER): VaultKeys {
+export function deriveKeys(phrase: string, cluster: Cluster = VAULT_CLUSTER): VaultKeys {
   const master = mnemonicToSeedSync(normalize(phrase));
   const tag = CLUSTER_TAG[cluster];
   const id = sha256(concat(text.encode(`qanary/vault-id/v1${tag}`), master)).slice(0, lmots.ID_LEN);
@@ -119,8 +126,8 @@ function b64(data: string): Uint8Array {
   return Uint8Array.from(bin, (c) => c.charCodeAt(0));
 }
 
-async function readAccount(a: Address) {
-  const { value } = await devnet.getAccountInfo(a, { encoding: 'base64' }).send();
+async function readAccount(cluster: Cluster, a: Address) {
+  const { value } = await rpc(cluster).getAccountInfo(a, { encoding: 'base64' }).send();
   return value
     ? { owner: value.owner as string, lamports: value.lamports as bigint, executable: value.executable, data: b64(value.data[0]) }
     : null;
@@ -138,13 +145,13 @@ export type VaultState = {
 };
 
 export async function fetchVault(a: Address): Promise<VaultState | null> {
-  const account = await readAccount(a);
+  const account = await readAccount(VAULT_CLUSTER, a);
   // Exactly the vault layout: anything else owned by the program (or a future layout) is not read as a vault.
   if (!account || account.owner !== VAULT_PROGRAM || account.data.length !== VAULT_SPACE) return null;
   const d = account.data;
   const nonce = new DataView(d.buffer, d.byteOffset).getUint32(72, true);
   const owner = d[76] === 1 ? addrDec.decode(d.slice(77, 109)) : null;
-  const rent = await devnet.getMinimumBalanceForRentExemption(BigInt(VAULT_SPACE)).send();
+  const rent = await rpc(VAULT_CLUSTER).getMinimumBalanceForRentExemption(BigInt(VAULT_SPACE)).send();
   const spendable = account.lamports > rent ? account.lamports - rent : 0n;
   return { address: a, id: d.slice(8, 24), genesisKey: d.slice(24, 48), key: d.slice(48, 72), nonce, owner, lamports: account.lamports, spendable };
 }
@@ -159,12 +166,13 @@ export type CanaryState = {
   pool: bigint;
 };
 
-export async function fetchCanary(): Promise<CanaryState | null> {
+/** The canary on `cluster`: the bounty's own, or the one a vault program checks on its cluster. */
+export async function fetchCanary(cluster: Cluster = CANARY_CLUSTER): Promise<CanaryState | null> {
   const a = await canaryAddress();
   const [account, honeypot, rent] = await Promise.all([
-    readAccount(a),
-    devnet.getBalance(CANARY_KEY).send(),
-    devnet.getMinimumBalanceForRentExemption(BigInt(CANARY_SPACE)).send(),
+    readAccount(cluster, a),
+    rpc(cluster).getBalance(CANARY_KEY).send(),
+    rpc(cluster).getMinimumBalanceForRentExemption(BigInt(CANARY_SPACE)).send(),
   ]);
   if (!account || account.owner !== BOUNTY_PROGRAM || account.data.length < 66) return null;
   const d = account.data;
@@ -181,9 +189,9 @@ export async function fetchCanary(): Promise<CanaryState | null> {
   };
 }
 
-/** True once the bounty program is deployed on devnet (its canary may still need initializing). */
-export async function bountyDeployed(): Promise<boolean> {
-  const account = await readAccount(BOUNTY_PROGRAM);
+/** True once the bounty program is deployed on `cluster` (its canary may still need initializing). */
+export async function bountyDeployed(cluster: Cluster = CANARY_CLUSTER): Promise<boolean> {
+  const account = await readAccount(cluster, BOUNTY_PROGRAM);
   return account?.executable === true;
 }
 
@@ -235,10 +243,10 @@ export async function checkWithdraw(vault: VaultState, amountInput: string, dest
   const dest = destinationInput.trim();
   if (!isAddress(dest) || dest === vault.address || RESERVED_KEYS.has(dest)) return { ok: false, reason: 'destination' };
   const destination = address(dest);
-  const account = await readAccount(destination);
+  const account = await readAccount(VAULT_CLUSTER, destination);
   if (account?.executable || account?.owner === 'Sysvar1111111111111111111111111111111111111') return { ok: false, reason: 'destination' };
   if (!account) {
-    const minimum = await devnet.getMinimumBalanceForRentExemption(0n).send();
+    const minimum = await rpc(VAULT_CLUSTER).getMinimumBalanceForRentExemption(0n).send();
     if (lamports < minimum) return { ok: false, reason: 'rent' };
   }
   return { ok: true, lamports, destination };
@@ -333,13 +341,13 @@ export class MaybeLanded extends Error {
   }
 }
 
-async function confirm(signature: string, lastValidBlockHeight: bigint): Promise<void> {
+async function confirm(cluster: Cluster, signature: string, lastValidBlockHeight: bigint): Promise<void> {
   for (;;) {
-    const { value } = await devnet.getSignatureStatuses([signature as never]).send();
+    const { value } = await rpc(cluster).getSignatureStatuses([signature as never]).send();
     const status = value[0];
     if (status?.err) throw new Error(`Transaction failed: ${JSON.stringify(status.err, (_k, v) => (typeof v === 'bigint' ? v.toString() : v))}`);
     if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') return;
-    const height = await devnet.getBlockHeight().send();
+    const height = await rpc(cluster).getBlockHeight().send();
     if (height > lastValidBlockHeight) throw new MaybeLanded(signature);
     await new Promise((r) => setTimeout(r, 1000));
   }
@@ -348,9 +356,16 @@ async function confirm(signature: string, lastValidBlockHeight: bigint): Promise
 /** Progress of `send`: waiting for the wallet to approve, then waiting for the network to confirm. */
 export type SendStep = 'approve' | 'confirm';
 
-/** Builds a v0 transaction paid by the connected wallet, has the wallet sign and send it, and waits until it lands or its blockhash expires. */
-export async function send(wallet: StandardWallet, account: WalletAccount, instructions: Instruction[], onStep?: (s: SendStep) => void): Promise<string> {
-  const { value: blockhash } = await devnet.getLatestBlockhash().send();
+/** Builds a v0 transaction on `cluster` paid by the connected wallet, has the wallet sign and send it, and waits until
+ *  it lands or its blockhash expires. */
+export async function send(
+  cluster: Cluster,
+  wallet: StandardWallet,
+  account: WalletAccount,
+  instructions: Instruction[],
+  onStep?: (s: SendStep) => void,
+): Promise<string> {
+  const { value: blockhash } = await rpc(cluster).getLatestBlockhash().send();
   const message = pipe(
     createTransactionMessage({ version: 0 }),
     (m) => setTransactionMessageFeePayer(address(account.address), m),
@@ -359,9 +374,9 @@ export async function send(wallet: StandardWallet, account: WalletAccount, instr
   );
   const wire = new Uint8Array(getTransactionEncoder().encode(compileTransaction(message)));
   onStep?.('approve');
-  const signature = getBase58Decoder().decode(await signAndSend(wallet, account, wire));
+  const signature = getBase58Decoder().decode(await signAndSend(wallet, account, wire, NETWORKS[cluster].chain));
   onStep?.('confirm');
-  await confirm(signature, blockhash.lastValidBlockHeight);
+  await confirm(cluster, signature, blockhash.lastValidBlockHeight);
   return signature;
 }
 
@@ -489,11 +504,11 @@ type JsonTransaction = {
 
 /** A request the current key already signed in a transaction that landed (and failed), from any device. */
 async function signedOnChain(vault: VaultState): Promise<SeenSignature | null> {
-  const history = await devnet.getSignaturesForAddress(vault.address, { limit: HISTORY_DEPTH }).send();
+  const history = await rpc(VAULT_CLUSTER).getSignaturesForAddress(vault.address, { limit: HISTORY_DEPTH }).send();
   const base58 = getBase58Encoder();
   for (const entry of history) {
     if (!entry.err) continue;
-    const tx = (await devnet
+    const tx = (await rpc(VAULT_CLUSTER)
       .getTransaction(entry.signature, { encoding: 'json', maxSupportedTransactionVersion: 0 })
       .send()) as unknown as JsonTransaction | null;
     if (!tx) continue;

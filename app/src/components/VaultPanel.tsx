@@ -2,19 +2,19 @@ import { generateMnemonic } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
 import { address, lamports, type Address } from '@solana/kit';
 import { useState } from 'react';
-import { t, type Key } from '../copy';
+import { DEPLOYMENT, t, tOn, type Key } from '../copy';
+import { NETWORKS, VAULT_CLUSTER } from '../lib/constants';
 import { friendlyError, isRejection, UserFacingError } from '../lib/errors';
 import { amount, exactSol, short } from '../lib/format';
 import * as lmots from '../lib/lmots';
 import { quizPassed, quizPositions } from '../lib/phraseQuiz';
-import { explorerDevnet } from '../lib/links';
+import { explorer } from '../lib/links';
 import {
   canaryAddress,
   checkWithdraw,
   computeLimitIx,
   createVaultIx,
   deriveKeys,
-  devnet,
   fetchVault,
   isValidPhrase,
   KeyAlreadyUsed,
@@ -25,6 +25,7 @@ import {
   PQ_COMPUTE_UNITS,
   pqSetOwnerIx,
   pqWithdrawSolIx,
+  rpc,
   send,
   setOwnerMessage,
   toHex,
@@ -63,6 +64,8 @@ const CHECK_ERRORS: Record<'amount' | 'balance' | 'destination' | 'rent', Key> =
   rent: 'badRent',
 };
 const sol = (lamportsValue: bigint) => amount(Number(lamportsValue) / 1e9);
+/** Copy for a sentence that names the vault's cluster. */
+const tv = (key: Key, vars?: Record<string, string | number>) => tOn(VAULT_CLUSTER, key, vars);
 
 /** Lets React paint the current step label before synchronous hashing (BIP-39, LM-OTS) blocks the thread.
  *  requestAnimationFrame never fires in a background tab, so a short timeout makes sure the flow never stalls. */
@@ -167,7 +170,7 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
 
   /** Runs one wallet action: busy is set at click time (no double sends), with step progress and friendly errors. */
   const run = async (id: string, labels: string[], task: Task) => {
-    if (!wallet || !account) return setStatus({ tone: 'error', text: t('connectFirst') });
+    if (!wallet || !account) return setStatus({ tone: 'error', text: tv('connectFirst') });
     setBusy(id);
     setStatus(null);
     setProgress(labels.length ? { labels, active: 0 } : null);
@@ -179,7 +182,7 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
         if (keys) setPending({ nonce: e.nonce, request: e.pending });
         else setStatus({ tone: 'error', text: e.message });
       } else if (e instanceof MaybeLanded) setStatus({ tone: 'error', text: e.message, tx: e.signature });
-      else setStatus({ tone: 'error', ...friendlyError(e) });
+      else setStatus({ tone: 'error', ...friendlyError(e, VAULT_CLUSTER) });
     } finally {
       setProgress(null);
       if (keys) await reload(keys).catch(() => undefined);
@@ -246,9 +249,9 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
       ixs.push(await pqInstruction(fresh, k, request));
     }
     try {
-      const sig = await send(wallet!, account!, ixs, stepOf(approveIndex)(go));
+      const sig = await send(VAULT_CLUSTER, wallet!, account!, ixs, stepOf(approveIndex)(go));
       await openCreated(k);
-      return { tone: 'success', text: t('createdOk'), tx: sig };
+      return { tone: 'success', text: tv('createdOk'), tx: sig };
     } catch (e) {
       // Someone may have created this exact vault first; that is harmless if it is untouched.
       const existing = await fetchVault(vaultAddr).catch(() => null);
@@ -268,11 +271,11 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
   const create = () => {
     const withAccess = allowWallet;
     const labels = withAccess
-      ? [t('stepKeys'), t('stepSignAccess'), approveLabel, t('stepConfirm')]
-      : [t('stepKeys'), approveLabel, t('stepConfirm')];
+      ? [t('stepKeys'), t('stepSignAccess'), approveLabel, tv('stepConfirm')]
+      : [t('stepKeys'), approveLabel, tv('stepConfirm')];
     return run('create', labels, async (go) => {
       await paint();
-      const k = deriveKeys(phrase);
+      const k = deriveKeys(phrase, VAULT_CLUSTER);
       const vaultAddr = await vaultAddress(k);
       const wanted: SignedRequest | null = withAccess ? { kind: 'setOwner', owner: payer! } : null;
       const prior = pendingFor(vaultAddr, 0);
@@ -299,7 +302,7 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
   const resendCreate = () => {
     if (!createPending) return;
     const { request, keys: k, vault: vaultAddr } = createPending;
-    return run('resendCreate', [t('stepCheck'), approveLabel, t('stepConfirm')], (go) => submitCreate(k, vaultAddr, request, go, 1));
+    return run('resendCreate', [t('stepCheck'), approveLabel, tv('stepConfirm')], (go) => submitCreate(k, vaultAddr, request, go, 1));
   };
 
   const openExisting = async () => {
@@ -308,15 +311,15 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
     setStatus(null);
     try {
       await paint();
-      const k = deriveKeys(phrase);
+      const k = deriveKeys(phrase, VAULT_CLUSTER);
       const v = await reload(k);
-      if (!v) return setStatus({ tone: 'error', text: t('noVaultFound') });
-      if (!sameBytes(lmots.publicKey(k.id, v.nonce, k.seed), v.key)) return setStatus({ tone: 'error', text: t('keyMismatch') });
+      if (!v) return setStatus({ tone: 'error', text: tv('noVaultFound') });
+      if (!sameBytes(lmots.publicKey(k.id, v.nonce, k.seed), v.key)) return setStatus({ tone: 'error', text: tv('keyMismatch') });
       setKeys(k);
       setMode('idle');
       setPhrase('');
     } catch (e) {
-      setStatus({ tone: 'error', ...friendlyError(e) });
+      setStatus({ tone: 'error', ...friendlyError(e, VAULT_CLUSTER) });
     } finally {
       setBusy(null);
     }
@@ -328,7 +331,7 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
     await paint();
     const ix = await pqInstruction(v, keys!, request);
     try {
-      return await send(wallet!, account!, [computeLimitIx(PQ_COMPUTE_UNITS), ix], stepOf(2)(go));
+      return await send(VAULT_CLUSTER, wallet!, account!, [computeLimitIx(PQ_COMPUTE_UNITS), ix], stepOf(2)(go));
     } catch (e) {
       if (isRejection(e)) throw new UserFacingError(t('walletCancelledAfterSign', { n: v.nonce }));
       throw e;
@@ -343,7 +346,7 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
     try {
       if (!(await reload(keys))) setStatus({ tone: 'error', text: t('vaultStillMissing') });
     } catch (e) {
-      setStatus({ tone: 'error', ...friendlyError(e) });
+      setStatus({ tone: 'error', ...friendlyError(e, VAULT_CLUSTER) });
     } finally {
       setBusy(null);
     }
@@ -359,12 +362,12 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
 
   const freshVault = async () => {
     const v = await reload(keys!);
-    if (!v) throw new UserFacingError(t('noVaultFound'));
+    if (!v) throw new UserFacingError(tv('noVaultFound'));
     return v;
   };
 
   const withdrawPq = () =>
-    run('withdrawPq', [t('stepCheck'), t('stepSign', { n: vault?.nonce ?? 0 }), approveLabel, t('stepConfirm')], async (go) => {
+    run('withdrawPq', [t('stepCheck'), t('stepSign', { n: vault?.nonce ?? 0 }), approveLabel, tv('stepConfirm')], async (go) => {
       const v = await freshVault();
       const check = await checkWithdraw(v, withdrawAmount, destination.trim() || account!.address);
       if (!check.ok) return { tone: 'error', text: t(CHECK_ERRORS[check.reason]) };
@@ -373,7 +376,7 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
     });
 
   const removeWallet = () =>
-    run('removeWallet', [t('stepCheck'), t('stepSign', { n: vault?.nonce ?? 0 }), approveLabel, t('stepConfirm')], async (go) => {
+    run('removeWallet', [t('stepCheck'), t('stepSign', { n: vault?.nonce ?? 0 }), approveLabel, tv('stepConfirm')], async (go) => {
       const v = await freshVault();
       const tx = await signAndSendPq(v, { kind: 'setOwner', owner: null }, go);
       return { tone: 'success', text: t('removeWalletOk'), tx };
@@ -383,10 +386,10 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
   const resend = () => {
     if (!pending) return;
     const { nonce, request } = pending;
-    return run('resend', [t('stepCheck'), approveLabel, t('stepConfirm')], async (go) => {
+    return run('resend', [t('stepCheck'), approveLabel, tv('stepConfirm')], async (go) => {
       const v = await freshVault();
       if (v.nonce !== nonce) return { tone: 'success', text: t('pendingLanded', { n: nonce }) };
-      const tx = await send(wallet!, account!, [computeLimitIx(PQ_COMPUTE_UNITS), await pqInstruction(v, keys!, request)], stepOf(1)(go));
+      const tx = await send(VAULT_CLUSTER, wallet!, account!, [computeLimitIx(PQ_COMPUTE_UNITS), await pqInstruction(v, keys!, request)], stepOf(1)(go));
       const text =
         request.kind === 'withdrawSol'
           ? t('withdrawPqOk', { amount: sol(BigInt(request.amount)), n: v.nonce, next: v.nonce + 1 })
@@ -398,19 +401,19 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
   };
 
   const withdrawWallet = () =>
-    run('withdrawWallet', [t('stepCheck'), approveLabel, t('stepConfirm')], async (go) => {
+    run('withdrawWallet', [t('stepCheck'), approveLabel, tv('stepConfirm')], async (go) => {
       const v = await freshVault();
       const check = await checkWithdraw(v, withdrawAmount, destination.trim() || account!.address);
       if (!check.ok) return { tone: 'error', text: t(CHECK_ERRORS[check.reason]) };
-      const tx = await send(wallet!, account!, [withdrawSolIx(v.address, payer!, check.destination, await canaryAddress(), check.lamports)], stepOf(1)(go));
+      const tx = await send(VAULT_CLUSTER, wallet!, account!, [withdrawSolIx(v.address, payer!, check.destination, await canaryAddress(), check.lamports)], stepOf(1)(go));
       return { tone: 'success', text: t('withdrawWalletOk', { amount: sol(check.lamports) }), tx };
     });
 
   const deposit = () => {
     const value = parseSol(depositAmount);
     if (!value) return setStatus({ tone: 'error', text: t('badAmount') });
-    return run('deposit', [t('stepApproveTx', { wallet: walletName }), t('stepConfirm')], async (go) => {
-      const tx = await send(wallet!, account!, [transferIx(payer!, vault!.address, value)], stepOf(0)(go));
+    return run('deposit', [t('stepApproveTx', { wallet: walletName }), tv('stepConfirm')], async (go) => {
+      const tx = await send(VAULT_CLUSTER, wallet!, account!, [transferIx(payer!, vault!.address, value)], stepOf(0)(go));
       return { tone: 'success', text: t('depositOk', { amount: sol(value) }), tx };
     });
   };
@@ -418,14 +421,15 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
   const airdrop = () =>
     run('airdrop', [], async () => {
       try {
-        await devnet.requestAirdrop(payer!, lamports(1_000_000_000n)).send();
+        await rpc(VAULT_CLUSTER).requestAirdrop(payer!, lamports(1_000_000_000n)).send();
       } catch {
         throw new UserFacingError(t('airdropFailed'));
       }
       return { tone: 'success', text: t('airdropOk') };
     });
 
-  const airdropButton = payer && (
+  // Devnet only: mainnet has no faucet.
+  const airdropButton = payer && NETWORKS[VAULT_CLUSTER].airdrop && (
     <Button variant="ghost" size="sm" loading={busy === 'airdrop'} disabled={!!busy} onClick={() => void airdrop()}>
       {t('getDevnetSol')}
     </Button>
@@ -447,8 +451,10 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
 
   return (
     <div className="space-y-4">
-      <Callout tone="caution" title={t('devnetBannerTitle')}>
-        {t('devnetBanner')}
+      <Callout tone="caution" title={t(VAULT_CLUSTER === 'devnet' ? 'devnetBannerTitle' : 'mainnetBannerTitle')}>
+        {t(VAULT_CLUSTER === 'devnet' ? 'devnetBanner' : 'mainnetBanner')}
+        {/* Set only when the Bounty runs on another cluster: which canary this vault follows. */}
+        {DEPLOYMENT.vaultCanary && ` ${DEPLOYMENT.vaultCanary}`}
       </Callout>
 
       <Card accent>
@@ -459,7 +465,7 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
                 {(['vaultStep1', 'vaultStep2', 'vaultStep3'] as const).map((k, i) => (
                   <li key={k} className="flex gap-2">
                     <span className="font-mono text-fg-subtle">{i + 1}.</span>
-                    <span>{t(k)}</span>
+                    <span>{tv(k)}</span>
                   </li>
                 ))}
               </ol>
@@ -474,7 +480,7 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
               </div>
               {!account && (
                 <p className="mt-3 text-xs leading-5 text-fg-subtle">
-                  {t('needWalletToCreate')} {t('openNoWallet')}
+                  {tv('needWalletToCreate')} {t('openNoWallet')}
                 </p>
               )}
             </div>
@@ -556,13 +562,13 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
                 loading={busy === 'create'}
                 onClick={() => void create()}
               >
-                {t('confirmCreate')}
+                {tv('confirmCreate')}
               </Button>
               <Button variant="ghost" disabled={!!busy} onClick={cancelMode}>
                 {t('closeVault')}
               </Button>
             </div>
-            {!account && <p className="mt-3 text-xs leading-5 text-fg-subtle">{t('needWalletToCreate')}</p>}
+            {!account && <p className="mt-3 text-xs leading-5 text-fg-subtle">{tv('needWalletToCreate')}</p>}
             {createPending && (
               <Callout tone="caution" role="alert" title={t('pendingTitle', { n: 0 })} className="mt-4">
                 {pendingCopy(createPending.request)}
@@ -616,7 +622,7 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
 
         {keys && !vault && mode === 'idle' && busy !== 'create' && busy !== 'resendCreate' && (
           <div>
-            <p className="text-sm leading-6 text-fg-muted">{t('vaultNotLoaded')}</p>
+            <p className="text-sm leading-6 text-fg-muted">{tv('vaultNotLoaded')}</p>
             <div className="mt-3 flex flex-wrap items-center gap-3">
               <Button loading={busy === 'reload'} disabled={!!busy} onClick={() => void reloadVault()}>
                 {t('reloadVault')}
@@ -631,7 +637,7 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
         {keys && vault && (
           <div className="space-y-5">
             <StatGrid className="sm:grid-cols-2">
-              <Stat label={t('vaultAddress')} value={<AddressChip value={vault.address} href={explorerDevnet(`address/${vault.address}`)} />} valueClass="text-sm" />
+              <Stat label={t('vaultAddress')} value={<AddressChip value={vault.address} href={explorer(VAULT_CLUSTER, `address/${vault.address}`)} />} valueClass="text-sm" />
               <Stat
                 label={t('balance')}
                 value={`${sol(vault.spendable)} SOL`}
@@ -750,7 +756,7 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
                     {t('resend')}
                   </Button>
                   <a
-                    href={explorerDevnet(`address/${vault.address}`)}
+                    href={explorer(VAULT_CLUSTER, `address/${vault.address}`)}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1 text-xs text-fg-muted hover:text-canary"
@@ -764,7 +770,7 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
           </div>
         )}
 
-        <TxFeedback progress={progress} status={status} />
+        <TxFeedback progress={progress} status={status} cluster={VAULT_CLUSTER} />
       </Card>
     </div>
   );

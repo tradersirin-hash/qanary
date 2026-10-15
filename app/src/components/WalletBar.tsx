@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { t } from '../copy';
+import { clusterTag, DEPLOYMENT, t } from '../copy';
+import type { Cluster } from '../lib/cluster';
 import { friendlyError } from '../lib/errors';
 import { short } from '../lib/format';
 import type { WalletState } from '../lib/useWallet';
 import { Power } from './icons';
 import { Button } from './ui';
 
-/** Connect button plus a disclosure panel listing devnet wallets (not a role="menu": no arrow-key navigation). */
-export function WalletBar({ w }: { w: WalletState }) {
+/** Connect button plus a disclosure panel listing wallets (not a role="menu": no arrow-key navigation). Once connected,
+ *  a tag names `cluster`, where this page's transactions go; null hides it. */
+export function WalletBar({ w, cluster }: { w: WalletState; cluster: Cluster | null }) {
   const [open, setOpen] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,9 +52,11 @@ export function WalletBar({ w }: { w: WalletState }) {
   if (w.account) {
     return (
       <div className="flex items-center gap-1 rounded-full border border-line bg-panel p-1">
-        <span className="rounded-full bg-caution/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-orange-200 ring-1 ring-inset ring-caution/30">
-          {t('devnetTag')}
-        </span>
+        {cluster && (
+          <span className="rounded-full bg-caution/10 px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-orange-200 ring-1 ring-inset ring-caution/30">
+            {clusterTag(cluster)}
+          </span>
+        )}
         <span className="flex items-center gap-2 rounded-full bg-white/[0.04] px-2.5 py-1 font-mono text-xs text-fg">
           {w.wallet && <img src={w.wallet.icon} alt="" width={16} height={16} className="hidden h-4 w-4 sm:block" />}
           <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-safe" />
@@ -99,8 +103,8 @@ export function WalletBar({ w }: { w: WalletState }) {
           ref={panelRef}
           className="absolute right-0 z-50 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-line bg-panel/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl motion-safe:animate-rise"
         >
-          <p className="px-3 pt-2 font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-fg-subtle">{t('walletsTitle')}</p>
-          <p className="px-3 pb-2 pt-1 text-xs leading-5 text-fg-subtle">{t('walletsHint')}</p>
+          <p className="px-3 pt-2 font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-fg-subtle">{DEPLOYMENT.walletsTitle}</p>
+          <p className="px-3 pb-2 pt-1 text-xs leading-5 text-fg-subtle">{DEPLOYMENT.walletsHint}</p>
           {w.wallets.length === 0 && <p className="px-3 pb-2 text-sm leading-6 text-fg-muted">{t('noWallet')}</p>}
           {w.wallets.map((wallet) => (
             <button

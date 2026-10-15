@@ -1,7 +1,8 @@
 import { useState, type ComponentProps, type ReactNode } from 'react';
-import { t, type Key } from '../copy';
+import { t, tOn, type Key } from '../copy';
+import type { Cluster } from '../lib/cluster';
 import { short } from '../lib/format';
-import { explorerDevnet } from '../lib/links';
+import { explorer } from '../lib/links';
 import { AlertTriangle, ArrowUpRight, Branch, Check, Copy, Info, ShieldCheck } from './icons';
 
 export const cn = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(' ');
@@ -256,11 +257,11 @@ export function SourceLink({ url }: { url: string }) {
   );
 }
 
-export function LiveTag({ label }: { label: Key }) {
+export function LiveTag({ label }: { label: string }) {
   return (
     <span className="inline-flex shrink-0 items-center gap-1.5 self-start whitespace-nowrap rounded-full bg-safe/10 px-2.5 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-emerald-300 ring-1 ring-inset ring-safe/25 md:self-auto">
       <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-safe" />
-      {t(label)}
+      {label}
     </span>
   );
 }
@@ -344,7 +345,7 @@ export function Skeleton({ className }: { className?: string }) {
 export type Progress = { labels: string[]; active: number };
 export type Status = { tone: 'success' | 'error'; text: string; tx?: string; details?: string };
 
-function FeedbackBox({ status }: { status: Status }) {
+function FeedbackBox({ status, cluster }: { status: Status; cluster: Cluster }) {
   const ok = status.tone === 'success';
   const Icon = ok ? Check : AlertTriangle;
   return (
@@ -359,12 +360,12 @@ function FeedbackBox({ status }: { status: Status }) {
         <p>{status.text}</p>
         {status.tx && (
           <a
-            href={explorerDevnet(`tx/${status.tx}`)}
+            href={explorer(cluster, `tx/${status.tx}`)}
             target="_blank"
             rel="noreferrer"
             className="mt-1 inline-flex items-center gap-1 font-medium underline underline-offset-2 hover:text-fg"
           >
-            {t('viewTx')}
+            {tOn(cluster, 'viewTx')}
             <ArrowUpRight className="h-3 w-3" />
           </a>
         )}
@@ -379,8 +380,8 @@ function FeedbackBox({ status }: { status: Status }) {
   );
 }
 
-/** Step list while a transaction runs, then a green or red result. The status region is always mounted. */
-export function TxFeedback({ progress, status }: { progress: Progress | null; status: Status | null }) {
+/** Step list while a transaction runs, then a green or red result (its explorer link on `cluster`). The status region is always mounted. */
+export function TxFeedback({ progress, status, cluster }: { progress: Progress | null; status: Status | null; cluster: Cluster }) {
   return (
     <>
       <div role="status" aria-live="polite">
@@ -408,11 +409,11 @@ export function TxFeedback({ progress, status }: { progress: Progress | null; st
             })}
           </ol>
         )}
-        {status?.tone === 'success' && <FeedbackBox status={status} />}
+        {status?.tone === 'success' && <FeedbackBox status={status} cluster={cluster} />}
       </div>
       {status?.tone === 'error' && (
         <div role="alert">
-          <FeedbackBox status={status} />
+          <FeedbackBox status={status} cluster={cluster} />
         </div>
       )}
     </>

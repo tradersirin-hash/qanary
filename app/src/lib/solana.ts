@@ -1,5 +1,6 @@
 import { address, createSolanaRpc, getAddressDecoder, isOffCurveAddress, type Address } from '@solana/kit';
 import type { Key } from '../copy';
+import { MAINNET_PUBLIC_RPC } from './cluster';
 import { SHOWN_TOKENS } from './constants';
 import { fetchHoldings, fetchSolPrice, fetchSymbols, fetchUsdPrices, type Holdings } from './jupiter';
 
@@ -7,7 +8,7 @@ import { fetchHoldings, fetchSolPrice, fetchSymbols, fetchUsdPrices, type Holdin
 // public RPC. That one refuses indexed calls (getTokenAccountsByOwner), so token balances come from Jupiter
 // unless a keyed RPC is configured.
 const CUSTOM_RPC = import.meta.env.VITE_SOLANA_RPC;
-const rpc = createSolanaRpc(CUSTOM_RPC || 'https://solana-rpc.publicnode.com');
+const rpc = createSolanaRpc(CUSTOM_RPC || MAINNET_PUBLIC_RPC);
 const addressDecoder = getAddressDecoder();
 
 const SYSTEM_PROGRAM: string = '11111111111111111111111111111111';

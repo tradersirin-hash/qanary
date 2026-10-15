@@ -1,15 +1,17 @@
 // Canary watchdog, run every 30 minutes by .github/workflows/watchdog.yml (and by hand: node scripts/watchdog.mjs).
 //
-// Reads the devnet canary and the honeypot balance. Lamports at the canary key can only go down if its
-// private key signed, so a balance below the recorded baseline means someone broke the key: the watchdog
-// then calls the permissionless `check_honeypot`, which trips the canary on-chain. Calling it when nothing
-// dropped only refreshes the baseline, so a wrong guess is harmless.
+// Reads the canary and the honeypot balance on CLUSTER (devnet, the default, or mainnet) through RPC_URL
+// (default: the public RPC of that cluster; on devnet the older DEVNET_RPC is still read). Lamports at the
+// canary key can only go down if its private key signed, so a balance below the recorded baseline means
+// someone broke the key: the watchdog then calls the permissionless `check_honeypot`, which trips the canary
+// on-chain. Calling it when nothing dropped only refreshes the baseline, so a wrong guess is harmless.
 //
-// Fee payer: the WATCHDOG_KEYPAIR secret if set (a JSON array of 64 secret-key bytes, or 64 hex chars of a
-// 32-byte seed); otherwise a throwaway key funded by a devnet airdrop at the moment it is needed.
-// Writes status=alive|drained|tripped|missing (and details) to $GITHUB_OUTPUT for the workflow's alert step.
-// A forced check that cannot send (say, a malformed WATCHDOG_KEYPAIR) fails the run; a real drop never does,
-// so the alert step still opens the issue.
+// Fee payer, needed only to send: the WATCHDOG_KEYPAIR secret if set (a JSON array of 64 secret-key bytes, or
+// 64 hex chars of a 32-byte seed); otherwise, on devnet, a throwaway key funded by an airdrop at the moment it
+// is needed. Mainnet has no airdrop, so without a key the watchdog still reads and reports, and only a send fails.
+// Writes cluster=… and status=alive|drained|tripped|missing (and details) to $GITHUB_OUTPUT for the workflow's
+// alert step. A forced check that cannot send (say, a malformed WATCHDOG_KEYPAIR) fails the run; a real drop
+// never does, so the alert step still opens the issue.
 import { appendFileSync } from 'node:fs';
 import { sha256 } from '@noble/hashes/sha2';
 import {
@@ -20,7 +22,6 @@ import {
   createKeyPairSignerFromPrivateKeyBytes,
   createSolanaRpc,
   createTransactionMessage,
-  devnet,
   generateKeyPairSigner,
   getBase64EncodedWireTransaction,
   getProgramDerivedAddress,
@@ -34,7 +35,14 @@ import {
 
 const BOUNTY_PROGRAM = address('HhrtGaEUk6Tar4cdCHkgTZj7jY5YXha4wjfdm8EteXRV');
 const CANARY_KEY = address('4H3XvrAPRRJuSaTZJt3XSRpEVPCPKJjWy69jDkx1VNwZ');
-const rpc = createSolanaRpc(devnet(process.env.DEVNET_RPC || 'https://api.devnet.solana.com'));
+// The genesis hash proves RPC_URL serves the cluster named, so a misconfigured endpoint cannot report another cluster's canary.
+const CLUSTERS = {
+  devnet: { rpc: 'https://api.devnet.solana.com', genesis: 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG', airdrop: true },
+  mainnet: { rpc: 'https://api.mainnet-beta.solana.com', genesis: '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d', airdrop: false },
+};
+const cluster = process.env.CLUSTER || 'devnet';
+if (!Object.hasOwn(CLUSTERS, cluster)) throw new Error(`CLUSTER must be devnet or mainnet, not "${cluster}"`);
+const rpc = createSolanaRpc(process.env.RPC_URL || (cluster === 'devnet' && process.env.DEVNET_RPC) || CLUSTERS[cluster].rpc);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function report(fields) {
@@ -73,6 +81,7 @@ async function feePayer() {
     if (/^\[[\d,\s]+\]$/.test(secret)) return createKeyPairSignerFromBytes(Uint8Array.from(JSON.parse(secret)));
     throw new Error('WATCHDOG_KEYPAIR is neither 64 hex characters nor a JSON array of 64 bytes');
   }
+  if (!CLUSTERS[cluster].airdrop) throw new Error(`no WATCHDOG_KEYPAIR, and ${cluster} has no airdrop to pay the fee`);
   const signer = await generateKeyPairSigner();
   let lastError;
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -84,7 +93,7 @@ async function feePayer() {
       await sleep(5000 * (attempt + 1));
     }
   }
-  throw new Error(`no WATCHDOG_KEYPAIR and the devnet airdrop failed: ${lastError?.message ?? lastError}`);
+  throw new Error(`no WATCHDOG_KEYPAIR and the ${cluster} airdrop failed: ${lastError?.message ?? lastError}`);
 }
 
 async function checkHoneypot(canary) {
@@ -112,12 +121,14 @@ async function checkHoneypot(canary) {
   return { signature, payer: signer.address };
 }
 
+const genesis = await rpc.getGenesisHash().send();
+if (genesis !== CLUSTERS[cluster].genesis) throw new Error(`RPC_URL does not serve ${cluster} (genesis hash ${genesis})`);
 const [canary] = await getProgramDerivedAddress({ programAddress: BOUNTY_PROGRAM, seeds: [new TextEncoder().encode('canary')] });
 const state = await readCanary(canary);
 if (!state) {
-  report({ status: 'missing', canary });
+  report({ cluster, status: 'missing', canary });
 } else if (state.tripped) {
-  report({ status: 'tripped', canary, balance: state.balance, baseline: state.baseline });
+  report({ cluster, status: 'tripped', canary, balance: state.balance, baseline: state.baseline });
 } else if (state.balance < state.baseline || process.env.FORCE_CHECK === '1') {
   // FORCE_CHECK=1 exercises the transaction path while nothing dropped: it only refreshes the baseline.
   const drained = state.balance < state.baseline;
@@ -131,6 +142,7 @@ if (!state) {
   }
   const after = await readCanary(canary);
   report({
+    cluster,
     status: after?.tripped ? 'tripped' : drained ? 'drained' : 'alive',
     tripped_now: !!after?.tripped,
     canary,
@@ -142,5 +154,5 @@ if (!state) {
   });
   if (error && !drained) process.exitCode = 1;
 } else {
-  report({ status: 'alive', canary, balance: state.balance, baseline: state.baseline });
+  report({ cluster, status: 'alive', canary, balance: state.balance, baseline: state.baseline });
 }

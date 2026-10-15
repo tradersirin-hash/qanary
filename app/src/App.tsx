@@ -10,7 +10,8 @@ import { SolanaResult } from './components/SolanaResult';
 import { StatsStrip } from './components/StatsStrip';
 import { Button, Card, cn, LiveTag, Section, Skeleton } from './components/ui';
 import { WalletBar } from './components/WalletBar';
-import { t, type Key } from './copy';
+import { DEPLOYMENT, t, tOn, type Key } from './copy';
+import { CANARY_CLUSTER, VAULT_CLUSTER } from './lib/constants';
 import { detectAddress } from './lib/detect';
 import type { EvmReport } from './lib/evm';
 import { SITE_URL } from './lib/links';
@@ -19,7 +20,7 @@ import type { SolanaReport } from './lib/solana';
 import { knownCanary, useCanary } from './lib/useCanary';
 import { useWallet } from './lib/useWallet';
 
-// The devnet panels pull in @solana/kit, bip39 and LM-OTS; they load as their own chunks.
+// The Vault and Bounty panels pull in @solana/kit, bip39 and LM-OTS; they load as their own chunks.
 const VaultPanel = lazy(() => import('./components/VaultPanel').then((m) => ({ default: m.VaultPanel })));
 const CanaryPanel = lazy(() => import('./components/CanaryPanel').then((m) => ({ default: m.CanaryPanel })));
 const PanelFallback = () => <div className="h-72 rounded-card border border-line bg-panel motion-safe:animate-pulse" />;
@@ -81,7 +82,10 @@ function newHeadEl(tag: 'link' | 'meta', key: string, value: string) {
   return el;
 }
 
-const CANARY_PAGES: ReadonlySet<Route> = new Set(['home', 'vault', 'bounty']);
+const SAME_CLUSTER = CANARY_CLUSTER === VAULT_CLUSTER;
+// The vault program checks the canary on its own cluster, so the vault page reads that one. On one cluster it is
+// the same canary the home and bounty pages show.
+const CANARY_PAGES: ReadonlySet<Route> = new Set(SAME_CLUSTER ? ['home', 'vault', 'bounty'] : ['home', 'bounty']);
 
 function ResultSkeleton() {
   return (
@@ -169,7 +173,10 @@ export default function App() {
   const lastScanned = useRef('');
   const wallet = useWallet();
   const canary = useCanary(CANARY_PAGES.has(route));
-  const tripped = knownCanary(canary.view)?.tripped ?? false;
+  const vaultCanary = useCanary(!SAME_CLUSTER && route === 'vault', VAULT_CLUSTER);
+  const tripped = knownCanary((SAME_CLUSTER ? canary : vaultCanary).view)?.tripped ?? false;
+  // Where a connected wallet's transactions go from this page; elsewhere only if both programs share a cluster.
+  const walletCluster = route === 'vault' ? VAULT_CLUSTER : route === 'bounty' || SAME_CLUSTER ? CANARY_CLUSTER : null;
 
   // A page mounts the first time it is opened and then stays mounted (hidden), so scan results,
   // an open vault and form inputs survive switching pages.
@@ -193,7 +200,7 @@ export default function App() {
     document.getElementById(meta.heading)?.focus({ preventScroll: true });
   }, [route]);
 
-  // Fetch the devnet panel chunks once the first page is idle, so opening Vault or Bounty later is instant.
+  // Fetch the Vault and Bounty panel chunks once the first page is idle, so opening either later is instant.
   useEffect(() => {
     const warm = () => {
       void import('./components/VaultPanel').catch(() => {});
@@ -291,7 +298,7 @@ export default function App() {
             <NavLinks route={route} className="flex gap-1" />
           </nav>
           <div className="ml-auto">
-            <WalletBar w={wallet} />
+            <WalletBar w={wallet} cluster={walletCluster} />
           </div>
         </div>
         {/* Below lg the page links get their own scrollable row, so every page is reachable on phones. */}
@@ -321,7 +328,7 @@ export default function App() {
                 <div className="min-w-0">
                   <p className="inline-flex items-center gap-2 rounded-full border border-line bg-panel/60 px-3 py-1 text-xs text-fg-muted">
                     <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-safe motion-safe:animate-pulse" />
-                    {t('heroLive')}
+                    {DEPLOYMENT.heroLive}
                   </p>
                   <h1
                     id="hero-title"
@@ -440,7 +447,7 @@ export default function App() {
             eyebrow={t('vaultEyebrow')}
             title={t('vaultSectionTitle')}
             sub={t('vaultSectionSub')}
-            aside={<LiveTag label="liveDevnet" />}
+            aside={<LiveTag label={tOn(VAULT_CLUSTER, 'liveCluster')} />}
           >
             <Suspense fallback={<PanelFallback />}>
               <VaultPanel w={wallet} canaryTripped={tripped} />
@@ -455,8 +462,8 @@ export default function App() {
             index="03"
             eyebrow={t('bountyEyebrow')}
             title={t('canarySectionTitle')}
-            sub={t('canarySectionSub')}
-            aside={<LiveTag label="liveDevnet" />}
+            sub={DEPLOYMENT.canarySectionSub}
+            aside={<LiveTag label={tOn(CANARY_CLUSTER, 'liveCluster')} />}
           >
             <Suspense fallback={<PanelFallback />}>
               <CanaryPanel w={wallet} view={canary.view} refresh={canary.refresh} />

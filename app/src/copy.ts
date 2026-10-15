@@ -1,3 +1,8 @@
+import type { Cluster } from './lib/cluster';
+import { CANARY_CLUSTER, VAULT_CLUSTER } from './lib/constants';
+
+// Sentences about the Vault or the Bounty name the cluster each runs on through slots ({cluster}, {sol}, {wallet},
+// {tag}) that tOn() fills. Sentences about both programs at once are picked by deployment().
 const copy = {
   tagline: 'The quantum canary for Solana',
 
@@ -19,6 +24,9 @@ const copy = {
   notFoundSub: 'There is no page at this address. The scanner, vault and canary are one click away.',
   notFoundLink: 'Back to the scanner',
   heroLive: 'Live: Scan on mainnet · Vault and Bounty on devnet',
+  heroLiveBounty: 'Live: Scan and Bounty on mainnet · Vault on devnet',
+  heroLiveVault: 'Live: Scan and Vault on mainnet · Bounty on devnet',
+  heroLiveAll: 'Live: Scan, Vault and Bounty on mainnet',
   heroTitleLead: 'Is your wallet',
   heroTitleEm: 'quantum-exposed?',
   heroSub:
@@ -53,9 +61,8 @@ const copy = {
   statPool: 'Bounty pool',
   statRecord: 'Largest elliptic-curve key broken on a quantum computer',
   statOdds: 'Expert odds of a key-breaking quantum computer within 10 years',
-  liveDevnet: 'Live · devnet',
+  liveCluster: 'Live · {cluster}',
   liveMainnet: 'Live · mainnet, read-only',
-  devnetTag: 'Devnet',
 
   // how it works
   howEyebrow: 'How it works',
@@ -70,12 +77,14 @@ const copy = {
   howVaultTitle: 'Qanary Vault',
   howVaultTag: 'Protect the funds',
   howVaultBody:
-    'Keep devnet SOL behind LM-OTS hash-based signatures (RFC 8554, NIST SP 800-208). One 24-word phrase; a fresh one-time key signs each action in your browser, and your wallet only pays fees.',
+    'Keep {sol} behind LM-OTS hash-based signatures (RFC 8554, NIST SP 800-208). One 24-word phrase; a fresh one-time key signs each action in your browser, and your wallet only pays fees.',
   howVaultLink: 'Try the vault',
   howBountyTitle: 'Qanary Bounty',
   howBountyTag: 'Watch for the break',
   howBountyBody:
     'A SOL bounty sits behind an Ed25519 key nobody holds. Claiming it flips a public flag; vaults read it and close their classical wallet path.',
+  howBountyBodySplit:
+    'A SOL bounty sits behind an Ed25519 key nobody holds. Claiming it flips a public flag that any program on {bounty} can read. The Vault follows the canary on {vault}.',
   howBountyLink: 'Check the canary',
   programLabel: 'Program',
   howNote: 'The canary is a signal an attacker chooses to send, not a detector.',
@@ -114,7 +123,7 @@ const copy = {
   unverified: 'Unverified',
   tokensUnavailable: 'Token balances are unavailable right now; only SOL is shown.',
   bridgeVault: 'This key is public forever. See the alternative:',
-  bridgeVaultLink: 'a vault behind post-quantum signatures, live on devnet',
+  bridgeVaultLink: 'a vault behind post-quantum signatures, live on {cluster}',
 
   programTitle: 'Solana program',
   upgradeAuthority: 'Upgrade authority',
@@ -223,34 +232,41 @@ const copy = {
   // errors
   errCancelled: 'Canceled in your wallet. Nothing was sent.',
   errFunds: 'Your wallet needs more devnet SOL for this and the fee. Use Get devnet SOL.',
+  errFundsSol: 'Your wallet needs more SOL for this and the fee.',
   errProgram: 'The program rejected this transaction. Nothing moved.',
   walletCancelledAfterSign:
     'Canceled in your wallet, but one-time key #{n} had already signed this request. To keep that key safe, Qanary can only re-send this exact request until it lands.',
 
   // wallet
   connectWallet: 'Connect wallet',
-  walletsTitle: 'Devnet wallets',
-  walletsHint: 'Only needed for the devnet Vault and Bounty. Scanning works without a wallet.',
+  walletsTitle: '{tag} wallets',
+  walletsTitleSplit: 'Wallets',
+  walletsHint: 'Only needed for the {cluster} Vault and Bounty. Scanning works without a wallet.',
+  walletsHintSplit: 'Only needed for the Vault ({vault}) and the Bounty ({bounty}). Scanning works without a wallet.',
   connecting: 'Connecting…',
   noWallet: 'No Solana wallet found. Install Phantom, Solflare or Backpack, then reload.',
   disconnect: 'Disconnect',
   devnetBannerTitle: 'Devnet demo · unaudited',
   devnetBanner: "Unaudited research code on devnet: never send real funds. Set your wallet's network to devnet before you sign.",
+  vaultCanarySplit: 'This vault follows the canary on {vault}, not the one on the Bounty page.',
+  mainnetBannerTitle: 'Mainnet · unaudited',
+  mainnetBanner:
+    "Unaudited research code holding real SOL: deposit only amounts you can afford to lose. Set your wallet's network to mainnet before you sign.",
   getDevnetSol: 'Get devnet SOL',
   airdropOk: 'Requested 1 devnet SOL. It usually arrives within a few seconds.',
   airdropFailed: 'The devnet faucet is rate-limiting right now. Try faucet.solana.com.',
-  viewTx: 'View on Solana Explorer (devnet)',
+  viewTx: 'View on Solana Explorer ({cluster})',
 
   // vault
   vaultSectionTitle: 'Qanary Vault',
   vaultSectionSub:
     'Custody behind hash-based post-quantum signatures (LM-OTS, NIST SP 800-208). Every action uses a fresh one-time key; the vault address never changes.',
   vaultStep1: 'Create a vault and write down its 24-word phrase, the only key.',
-  vaultStep2: 'Deposit devnet SOL from your wallet.',
+  vaultStep2: 'Deposit {sol} from your wallet.',
   vaultStep3: 'Withdraw with a post-quantum signature made in this browser. Your wallet only pays the fee.',
   createVault: 'Create a vault',
   openVault: 'Open a vault',
-  needWalletToCreate: "Connect a devnet wallet first. It pays the vault's rent and fees; it never holds the vault key.",
+  needWalletToCreate: "Connect a {wallet} first. It pays the vault's rent and fees; it never holds the vault key.",
   openNoWallet: 'Opening works without a wallet. Deposits and withdrawals need one to pay fees.',
   phraseTitle: 'Write down your recovery phrase',
   phraseWarn:
@@ -270,17 +286,17 @@ const copy = {
   badAmount: 'Enter a positive SOL amount with at most 9 decimals.',
   badBalance: 'That is more than the vault can spend.',
   badDestination: 'Enter a valid wallet address (not the vault, a program or a sysvar).',
-  badRent: 'A brand-new destination needs at least the rent-exempt minimum (about 0.00089 SOL).',
+  badRent: 'A brand-new destination needs at least the rent-exempt minimum (about 0.00065 SOL).',
   pendingLanded: 'The pending request for key #{n} already landed.',
-  confirmCreate: 'Create vault on devnet',
+  confirmCreate: 'Create vault on {cluster}',
   phraseLabel: 'Recovery phrase',
   wordCount: '{count}/24 words',
   chainCaption: 'LMOTS_SHA256_N24_W8 · 26 hash chains · 652-byte signature',
   phrasePlaceholder: 'Enter your 24-word recovery phrase',
   invalidPhrase: 'That is not a valid recovery phrase.',
-  noVaultFound: 'No vault exists for this phrase on devnet. Check the words, or create a new vault.',
+  noVaultFound: 'No vault exists for this phrase on {cluster}. Check the words, or create a new vault.',
   keyMismatch:
-    'This phrase opens a vault whose current key does not match. Do not sign anything; check that you are on devnet and the words are in order.',
+    'This phrase opens a vault whose current key does not match. Do not sign anything; check that you are on {cluster} and the words are in order.',
   open: 'Open',
   vaultAddress: 'Vault address',
   balance: 'Spendable',
@@ -319,18 +335,18 @@ const copy = {
   resend: 'Re-send this request',
   checkVault: 'Check the vault on Solana Explorer',
   closeVault: 'Cancel',
-  vaultNotLoaded: 'The vault could not be read from devnet yet. Public RPC nodes can lag a few seconds behind.',
+  vaultNotLoaded: 'The vault could not be read from {cluster} yet. Public RPC nodes can lag a few seconds behind.',
   vaultStillMissing: 'The vault still could not be read. Wait a few seconds, then reload again.',
   reloadVault: 'Reload vault',
-  connectFirst: 'Connect a devnet wallet first. It pays the network fees.',
+  connectFirst: 'Connect a {wallet} first. It pays the network fees.',
   stepCheck: 'Checking the request',
   stepSign: 'Signing with one-time key #{n} in your browser',
   stepKeys: 'Generating your vault keys',
   stepSignAccess: 'Signing wallet access with one-time key #0',
   stepApprove: 'Approve the network fee in {wallet}',
   stepApproveTx: 'Approve in {wallet}',
-  stepConfirm: 'Confirming on devnet',
-  createdOk: 'Vault created on devnet. Next: deposit some devnet SOL.',
+  stepConfirm: 'Confirming on {cluster}',
+  createdOk: 'Vault created on {cluster}. Next: deposit some {sol}.',
   depositOk: 'Deposited {amount} SOL into the vault.',
   withdrawPqOk: 'Withdrew {amount} SOL with post-quantum signature #{n}. Key #{next} is now active.',
   withdrawWalletOk: 'Withdrew {amount} SOL through wallet access (Ed25519 path).',
@@ -342,12 +358,17 @@ const copy = {
   canarySectionTitle: 'Qanary Bounty: the canary',
   canarySectionSub:
     'A SOL bounty sits behind an Ed25519 key that nobody holds the private key for. Only someone who can break elliptic-curve keys can claim it, and claiming it flips a public flag that vaults, and any Solana program, can read.',
-  canaryLoading: 'Reading the canary on devnet…',
+  canarySectionSubSplit:
+    'A SOL bounty sits behind an Ed25519 key that nobody holds the private key for. Only someone who can break elliptic-curve keys can claim it, and claiming it flips a public flag that any program on {bounty} can read. Qanary Vault follows the canary on {vault}.',
+  canaryLoading: 'Reading the canary on {cluster}…',
   canaryAlive: 'Alive: nobody has claimed the bounty or tripped the flag',
   canaryTripped: 'Tripped: someone signed with the canary key. Treat Ed25519 keys as broken.',
-  canaryRpcError: 'Could not reach devnet to read the canary. Retrying every 30 seconds.',
-  canaryNotInitialized: 'The bounty program is live on devnet, but the canary has not been initialized yet.',
-  canaryNotDeployed: 'The bounty program was not found on devnet.',
+  canaryRpcError: 'Could not reach {cluster} to read the canary. Retrying every 30 seconds.',
+  canaryNotInitialized: 'The bounty program is live on {cluster}, but the canary has not been initialized yet.',
+  canaryNotDeployed: 'The bounty program was not found on {cluster}.',
+  canaryMainnetTitle: 'Real SOL on mainnet',
+  canaryMainnetBody:
+    "The bounty pool and the honeypot hold real mainnet SOL. As deployed, the program has no withdraw: only a valid signature by the canary key can move either. A claim takes the pool; a drop in the honeypot trips the flag. The program is unaudited, and until its upgrades are frozen, its deployer key could change the code that guards the pool. Set your wallet's network to mainnet before you sign.",
   retryNow: 'Retry now',
   lastChecked: 'Last checked {time} · rechecks every 30 s',
   signalTitle: 'A signal, not a detector',
@@ -372,7 +393,7 @@ const copy = {
   fundHoneypotOk: 'Added {amount} SOL to the honeypot.',
   watchdogOk: 'Watchdog ran: the honeypot is intact and the canary is alive.',
   watchdogTripped: 'Watchdog tripped the canary: the honeypot balance dropped.',
-  canaryInitOk: 'Canary initialized on devnet.',
+  canaryInitOk: 'Canary initialized on {cluster}.',
 
   // business model
   modelEyebrow: 'Roadmap',
@@ -412,6 +433,8 @@ const copy = {
   tierVaultProFor: 'For DAOs and treasuries',
   tierVaultProBody:
     "Treasury policies on post-quantum vaults: spending limits, time locks and approval by several people. Today's vault has a single signer (one recovery phrase) and runs on devnet only; Pro ships only after an independent audit.",
+  tierVaultProBodyMainnet:
+    "Treasury policies on post-quantum vaults: spending limits, time locks and approval by several people. Today's vault has a single signer (one recovery phrase) and is unaudited; Pro ships only after an independent audit.",
   tierVaultProPrice: 'Subscription',
   modelPublicTitle: 'The signal stays a public good',
   modelPublicBody:
@@ -419,6 +442,8 @@ const copy = {
   modelHonestTitle: 'Not live yet',
   modelHonestBody:
     'Everything except Scan is planned, with no launch dates promised, and nothing here is for sale today. Anything that holds funds or switches on the canary (Vault Pro, canary integration) waits for an independent audit.',
+  modelHonestBodyMainnet:
+    'Everything except Scan is planned, with no launch dates promised, and nothing here is for sale today. Vault Pro and canary integration wait for an independent audit.',
 
   // footer
   limitsTitle: 'Honest limits',
@@ -428,9 +453,15 @@ const copy = {
     'The canary is a signal an attacker chooses to send, not a detector. It cannot stop the first attacker, and a silent attacker never trips it.',
   limit4:
     'Both programs run on devnet, are unaudited, and can still be upgraded by a classical (Ed25519) deployer key. Never use real funds.',
+  limit4Mainnet:
+    'Both programs run on mainnet, are unaudited, and can still be upgraded by a classical (Ed25519) deployer key. Use only amounts you can afford to lose.',
+  limit4Split:
+    'The {mainnet} runs on mainnet and the {devnet} on devnet only. Both are unaudited and can still be upgraded by a classical (Ed25519) deployer key. On mainnet, use only amounts you can afford to lose; on devnet, never use real funds.',
   limit6:
     "The scanner is read-only, but lookups go to third-party public RPC endpoints and Jupiter's price API, which can see which addresses you check. The address also goes into this page's link (?a=) so it can be shared.",
-  programsTitle: 'Programs · devnet',
+  programsTitle: 'Programs · {cluster}',
+  programsTitleSplit: 'Programs',
+  programOn: '{program} · {cluster}',
   vaultProgram: 'Vault program',
   bountyProgram: 'Bounty program',
   standardsTitle: 'Standards',
@@ -440,6 +471,8 @@ const copy = {
   sourceCode: 'Source code',
   xProfile: 'Qanary on X',
   footerBar: 'Unaudited research code · devnet only · never send real funds',
+  footerBarMainnet: 'Unaudited research code · mainnet · use only amounts you can afford to lose',
+  footerBarSplit: 'Unaudited research code · {mainnet} on mainnet · {devnet} on devnet only · use only amounts you can afford to lose',
   builtFor: 'Built for the Colosseum hackathon',
 };
 
@@ -450,3 +483,41 @@ export function t(key: Key, vars?: Record<string, string | number>): string {
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
   return s;
 }
+
+const CLUSTER_WORDS: Record<Cluster, { cluster: string; sol: string; wallet: string; tag: string }> = {
+  devnet: { cluster: 'devnet', sol: 'devnet SOL', wallet: 'devnet wallet', tag: 'Devnet' },
+  mainnet: { cluster: 'mainnet', sol: 'SOL', wallet: 'wallet', tag: 'Mainnet' },
+};
+
+/** t() for a sentence about a program on `cluster`: fills its {cluster}, {sol}, {wallet} and {tag} slots. */
+export function tOn(cluster: Cluster, key: Key, vars?: Record<string, string | number>): string {
+  return t(key, { ...CLUSTER_WORDS[cluster], ...vars });
+}
+
+/** The short cluster label on wallet and status tags. */
+export const clusterTag = (cluster: Cluster) => CLUSTER_WORDS[cluster].tag;
+
+/** Sentences about both programs at once, for the bounty (`canary`) and vault clusters. */
+export function deployment(canary: Cluster, vault: Cluster) {
+  const both = canary === vault ? canary : null;
+  // Split across clusters: the program on each.
+  const split = { mainnet: t(canary === 'mainnet' ? 'navBounty' : 'navVault'), devnet: t(canary === 'devnet' ? 'navBounty' : 'navVault') };
+  // The cluster of each. The vault program reads the canary on its own cluster, so split it never reads the Bounty's.
+  const where = { bounty: CLUSTER_WORDS[canary].cluster, vault: CLUSTER_WORDS[vault].cluster };
+  return {
+    heroLive: t(both === 'devnet' ? 'heroLive' : both === 'mainnet' ? 'heroLiveAll' : canary === 'mainnet' ? 'heroLiveBounty' : 'heroLiveVault'),
+    walletsTitle: both ? tOn(both, 'walletsTitle') : t('walletsTitleSplit'),
+    walletsHint: both ? tOn(both, 'walletsHint') : t('walletsHintSplit', where),
+    howBountyBody: t(both ? 'howBountyBody' : 'howBountyBodySplit', where),
+    canarySectionSub: t(both ? 'canarySectionSub' : 'canarySectionSubSplit', where),
+    // Names only the vault's own cluster, so a mainnet vault's banner never says devnet.
+    vaultCanary: both ? '' : t('vaultCanarySplit', where),
+    modelHonestBody: t(both === 'devnet' ? 'modelHonestBody' : 'modelHonestBodyMainnet'),
+    limit4: both === 'devnet' ? t('limit4') : both === 'mainnet' ? t('limit4Mainnet') : t('limit4Split', split),
+    programsTitle: both ? tOn(both, 'programsTitle') : t('programsTitleSplit'),
+    footerBar: both === 'devnet' ? t('footerBar') : both === 'mainnet' ? t('footerBarMainnet') : t('footerBarSplit', split),
+  };
+}
+
+/** deployment() for the clusters this build runs on. */
+export const DEPLOYMENT = deployment(CANARY_CLUSTER, VAULT_CLUSTER);

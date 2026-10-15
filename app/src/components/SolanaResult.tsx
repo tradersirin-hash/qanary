@@ -1,5 +1,5 @@
-import { t, type Key } from '../copy';
-import { SHOWN_TOKENS } from '../lib/constants';
+import { t, tOn, type Key } from '../copy';
+import { SHOWN_TOKENS, VAULT_CLUSTER } from '../lib/constants';
 import { amount, short, usd } from '../lib/format';
 import { solscan } from '../lib/links';
 import { Link, PATHS } from '../lib/router';
@@ -141,7 +141,7 @@ export function SolanaResult({ report, onScan, busy }: { report: SolanaReport; o
           <p className="mt-5 border-t border-line pt-4 text-sm text-fg-muted">
             {t('bridgeVault')}{' '}
             <Link to={PATHS.vault} className="font-medium text-canary hover:underline">
-              {t('bridgeVaultLink')} <span aria-hidden>→</span>
+              {tOn(VAULT_CLUSTER, 'bridgeVaultLink')} <span aria-hidden>→</span>
             </Link>
           </p>
         )}

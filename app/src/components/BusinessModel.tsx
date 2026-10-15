@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { t, type Key } from '../copy';
+import { DEPLOYMENT, t, type Key } from '../copy';
+import { VAULT_CLUSTER } from '../lib/constants';
 import { Bell, Code, FileText, Radar, ShieldCheck } from './icons';
 import { Callout, Card, cn, Section } from './ui';
 
@@ -60,7 +61,7 @@ const TIERS: Tier[] = [
     icon: <ShieldCheck className="h-5 w-5" />,
     title: 'tierVaultProTitle',
     audience: 'tierVaultProFor',
-    body: 'tierVaultProBody',
+    body: VAULT_CLUSTER === 'devnet' ? 'tierVaultProBody' : 'tierVaultProBodyMainnet',
     pricing: 'tierVaultProPrice',
   },
 ];
@@ -118,7 +119,7 @@ export function BusinessModel() {
           {t('modelPublicBody')}
         </Callout>
         <Callout tone="caution" title={t('modelHonestTitle')}>
-          {t('modelHonestBody')}
+          {DEPLOYMENT.modelHonestBody}
         </Callout>
       </div>
     </Section>

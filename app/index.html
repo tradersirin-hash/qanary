@@ -4,7 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Qanary · The quantum canary for Solana</title>
-    <meta name="description" content="Scan any Solana or EVM address for quantum exposure, hold devnet SOL behind LM-OTS post-quantum signatures, and watch an on-chain canary bounty. Unaudited research on devnet." />
+    <!-- The descriptions name the clusters the Vault and Bounty run on, so vite.config.ts fills them in. -->
+    <meta name="description" content="%QANARY_DESCRIPTION%" />
     <meta name="theme-color" content="#0b0d10" />
     <meta name="color-scheme" content="dark" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
@@ -15,14 +16,14 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Qanary" />
     <meta property="og:title" content="Qanary · The quantum canary for Solana" />
-    <meta property="og:description" content="Scan any Solana or EVM address for quantum exposure, hold devnet SOL behind LM-OTS post-quantum signatures, and watch an on-chain canary bounty. Unaudited research on devnet." />
+    <meta property="og:description" content="%QANARY_DESCRIPTION%" />
     <meta property="og:image" content="https://qanary.xyz/og.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Qanary logo, a Q whose ring breaks into a canary's beak, beside the words: The quantum canary for Solana" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Qanary · The quantum canary for Solana" />
-    <meta name="twitter:description" content="Quantum-exposure scanner, post-quantum devnet vault and on-chain canary for Solana. Unaudited research on devnet." />
+    <meta name="twitter:description" content="%QANARY_TWITTER_DESCRIPTION%" />
     <meta name="twitter:image" content="https://qanary.xyz/og.png" />
     <!-- canonical and og:url are set per page by App (SITE_URL in src/lib/links.ts + the page path); a static
          copy here would claim https://qanary.xyz/ on every page.
@@ -31,9 +32,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400..600&display=swap" rel="stylesheet" />
-    <!-- Omit these three if VITE_DEVNET_RPC / VITE_SOLANA_RPC override the hosts -->
-    <link rel="preconnect" href="https://api.devnet.solana.com" crossorigin />
-    <link rel="dns-prefetch" href="https://solana-rpc.publicnode.com" />
+    <!-- vite.config.ts puts the RPC hosts this build reads here: a preconnect to the canary's cluster, which the home
+         page reads first, and a dns-prefetch to the other one (the Scan always reads mainnet). -->
+    <!--qanary-rpc-hints-->
     <link rel="dns-prefetch" href="https://lite-api.jup.ag" />
   </head>
   <body>

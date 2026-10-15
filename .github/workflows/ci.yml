@@ -28,6 +28,10 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      # The launch configuration too: the Bounty (canary) on mainnet, the Vault on devnet.
+      - run: npm run build -- --outDir "$RUNNER_TEMP/dist-canary-mainnet" --emptyOutDir
+        env:
+          VITE_CANARY_CLUSTER: mainnet
 
   # The LM-OTS verifier and signer tests, including the RFC 9858 vectors, run natively. The program
   # tests (LiteSVM) need the SBF build (bash onchain/scripts/wsl-build.sh) and run locally for now.

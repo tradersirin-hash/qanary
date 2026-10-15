@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
-import { t, type Key } from '../copy';
+import { clusterTag, t, tOn, type Key } from '../copy';
 import { RECORD, STATS } from '../data/qday';
+import { CANARY_CLUSTER } from '../lib/constants';
 import { amount } from '../lib/format';
 import type { CanaryView } from '../lib/useCanary';
 import { cn, Skeleton, SourceLink } from './ui';
@@ -9,13 +10,13 @@ function LiveFoot() {
   return (
     <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-emerald-300">
       <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-safe motion-safe:animate-pulse" />
-      {t('liveDevnet')}
+      {tOn(CANARY_CLUSTER, 'liveCluster')}
     </span>
   );
 }
 
-function DevnetFoot() {
-  return <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-fg-subtle">{t('devnetTag')}</span>;
+function ClusterFoot() {
+  return <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-fg-subtle">{clusterTag(CANARY_CLUSTER)}</span>;
 }
 
 function Cell({ label, value, foot }: { label: string; value: ReactNode; foot: ReactNode }) {
@@ -34,10 +35,10 @@ const CANARY_WORD: Record<'notInitialized' | 'notDeployed' | 'error', Key> = {
   error: 'statUnreachable',
 };
 
-/** Live canary state and pool (devnet), plus two sourced Q-Day numbers. No invented figures. */
+/** Live canary state and pool (on the canary's cluster), plus two sourced Q-Day numbers. No invented figures. */
 export function StatsStrip({ view }: { view: CanaryView }) {
   const live = view.kind === 'live' ? view.state : null;
-  const foot = live ? <LiveFoot /> : <DevnetFoot />;
+  const foot = live ? <LiveFoot /> : <ClusterFoot />;
 
   const canaryValue =
     view.kind === 'loading' ? (

@@ -19,8 +19,6 @@ export type StandardWallet = {
   features: Record<string, unknown>;
 };
 
-export const CHAIN = 'solana:devnet';
-
 function supportsSolana(w: StandardWallet): boolean {
   return w.chains.some((c) => c.startsWith('solana:')) && 'solana:signAndSendTransaction' in w.features && 'standard:connect' in w.features;
 }
@@ -53,11 +51,12 @@ export async function disconnect(wallet: StandardWallet): Promise<void> {
   await feature?.disconnect();
 }
 
-/** Asks the wallet to sign (as fee payer) and send a serialized transaction; returns the signature bytes. */
-export async function signAndSend(wallet: StandardWallet, account: WalletAccount, transaction: Uint8Array): Promise<Uint8Array> {
+/** Asks the wallet to sign (as fee payer) and send a serialized transaction on `chain` (e.g. 'solana:devnet');
+ *  returns the signature bytes. */
+export async function signAndSend(wallet: StandardWallet, account: WalletAccount, transaction: Uint8Array, chain: string): Promise<Uint8Array> {
   const [result] = await (wallet.features['solana:signAndSendTransaction'] as SignAndSendFeature).signAndSendTransaction({
     account,
-    chain: CHAIN,
+    chain,
     transaction,
   });
   return result.signature;
