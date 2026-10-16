@@ -373,8 +373,9 @@ const copy = {
   modelEyebrow: 'Roadmap',
   modelTitle: 'Free scanner, public signal, paid tools',
   modelSub:
-    'Scan stays free and the canary signal stays public. Revenue would come from the tools wallets, protocols and treasuries need around them. Only Scan is live today; the rest is the plan, roughly in the order we intend to offer it.',
+    'Scan stays free and the canary signal stays public. Revenue would come from the tools wallets, protocols and treasuries need around them. Only Scan is live on mainnet today; Bounty and Vault run on devnet and come next. The rest is the plan, roughly in the order we intend to offer it.',
   phaseLive: 'Live',
+  phaseComingSoon: 'Coming soon',
   phasePlanned: 'Planned',
   phaseAfterAudit: 'After audit',
   pricingLabel: 'Pricing:',
@@ -383,6 +384,16 @@ const copy = {
   tierScanBody:
     'Any Solana or EVM address: is its key public and what sits behind it, plus which keys control Solana programs, mints and accounts. No wallet, no sign-up.',
   tierScanPrice: 'Free',
+  tierBountyTitle: 'Qanary Bounty on mainnet',
+  tierBountyFor: 'For every Solana program',
+  tierBountyBody:
+    'The quantum canary: a public on-chain flag that flips once someone proves Ed25519 keys can be broken. Running on devnet today; the mainnet launch is next.',
+  tierBountyPrice: 'Free to read',
+  tierVaultTitle: 'Qanary Vault on mainnet',
+  tierVaultFor: 'For holders',
+  tierVaultBody:
+    'SOL behind hash-based one-time signatures, opened with one 24-word phrase. Running on devnet today for testing; it reaches mainnet only after an independent audit.',
+  tierVaultPrice: 'Free; network fees only',
   tierApiTitle: 'Qanary API',
   tierApiFor: 'For wallets, exchanges and custodians',
   tierApiBody:
@@ -413,7 +424,7 @@ const copy = {
     'The on-chain flag is free for any program to read, and canary alerts will be free for everyone. Planned: a share of paid revenue tops up the bounty pool, so the reward for breaking the canary key in public keeps growing.',
   modelHonestTitle: 'Not live yet',
   modelHonestBody:
-    'Everything except Scan is planned, with no launch dates promised, and nothing here is for sale today. Anything that holds funds or switches on the canary (Vault Pro, canary integration) waits for an independent audit.',
+    'Everything except Scan is on devnet or planned, with no launch dates promised, and nothing here is for sale today. Anything that holds funds or switches on the canary (Vault Pro, canary integration) waits for an independent audit.',
 
   // footer
   limitsTitle: 'Honest limits',

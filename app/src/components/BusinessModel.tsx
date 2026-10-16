@@ -1,12 +1,13 @@
 import type { ReactNode } from 'react';
 import { t, type Key } from '../copy';
-import { Bell, Code, FileText, Radar, ShieldCheck } from './icons';
+import { Bell, Code, FileText, Lock, Radar, ShieldCheck } from './icons';
 import { Callout, Card, cn, Section } from './ui';
 
-type Phase = 'live' | 'planned' | 'afterAudit';
+type Phase = 'live' | 'comingSoon' | 'planned' | 'afterAudit';
 
 const PHASE: Record<Phase, { label: Key; className: string }> = {
   live: { label: 'phaseLive', className: 'bg-safe/10 text-emerald-300 ring-safe/25' },
+  comingSoon: { label: 'phaseComingSoon', className: 'bg-canary/10 text-canary ring-canary/25' },
   planned: { label: 'phasePlanned', className: 'bg-info/10 text-sky-300 ring-info/25' },
   afterAudit: { label: 'phaseAfterAudit', className: 'bg-caution/10 text-orange-200 ring-caution/30' },
 };
@@ -22,6 +23,22 @@ const TIERS: Tier[] = [
     audience: 'tierScanFor',
     body: 'tierScanBody',
     pricing: 'tierScanPrice',
+  },
+  {
+    phase: 'comingSoon',
+    icon: <img src="/qanary.svg" alt="" width={24} height={24} className="h-6 w-6 opacity-70" />,
+    title: 'tierBountyTitle',
+    audience: 'tierBountyFor',
+    body: 'tierBountyBody',
+    pricing: 'tierBountyPrice',
+  },
+  {
+    phase: 'comingSoon',
+    icon: <Lock className="h-5 w-5" />,
+    title: 'tierVaultTitle',
+    audience: 'tierVaultFor',
+    body: 'tierVaultBody',
+    pricing: 'tierVaultPrice',
   },
   {
     phase: 'planned',
