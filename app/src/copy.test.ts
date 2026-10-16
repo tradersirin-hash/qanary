@@ -43,8 +43,10 @@ describe('copy with both programs on devnet (the default)', () => {
       canarySectionSub:
         'A SOL bounty sits behind an Ed25519 key that nobody holds the private key for. Only someone who can break elliptic-curve keys can claim it, and claiming it flips a public flag that vaults, and any Solana program, can read.',
       vaultCanary: '',
+      modelSub:
+        'Scan stays free and the canary signal stays public. Revenue would come from the tools wallets, protocols and treasuries need around them. Only Scan is live on mainnet today; Bounty and Vault run on devnet and come next. The rest is the plan, roughly in the order we intend to offer it.',
       modelHonestBody:
-        'Everything except Scan is planned, with no launch dates promised, and nothing here is for sale today. Anything that holds funds or switches on the canary (Vault Pro, canary integration) waits for an independent audit.',
+        'Everything except Scan is on devnet or planned, with no launch dates promised, and nothing here is for sale today. Anything that holds funds or switches on the canary (Vault Pro, canary integration) waits for an independent audit.',
       limit4:
         'Both programs run on devnet, are unaudited, and can still be upgraded by a classical (Ed25519) deployer key. Never use real funds.',
       programsTitle: 'Programs · devnet',

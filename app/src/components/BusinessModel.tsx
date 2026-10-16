@@ -1,13 +1,14 @@
 import type { ReactNode } from 'react';
 import { DEPLOYMENT, t, type Key } from '../copy';
-import { VAULT_CLUSTER } from '../lib/constants';
-import { Bell, Code, FileText, Radar, ShieldCheck } from './icons';
+import { CANARY_CLUSTER, VAULT_CLUSTER } from '../lib/constants';
+import { Bell, Code, FileText, Lock, Radar, ShieldCheck } from './icons';
 import { Callout, Card, cn, Section } from './ui';
 
-type Phase = 'live' | 'planned' | 'afterAudit';
+type Phase = 'live' | 'comingSoon' | 'planned' | 'afterAudit';
 
 const PHASE: Record<Phase, { label: Key; className: string }> = {
   live: { label: 'phaseLive', className: 'bg-safe/10 text-emerald-300 ring-safe/25' },
+  comingSoon: { label: 'phaseComingSoon', className: 'bg-canary/10 text-canary ring-canary/25' },
   planned: { label: 'phasePlanned', className: 'bg-info/10 text-sky-300 ring-info/25' },
   afterAudit: { label: 'phaseAfterAudit', className: 'bg-caution/10 text-orange-200 ring-caution/30' },
 };
@@ -23,6 +24,22 @@ const TIERS: Tier[] = [
     audience: 'tierScanFor',
     body: 'tierScanBody',
     pricing: 'tierScanPrice',
+  },
+  {
+    phase: CANARY_CLUSTER === 'mainnet' ? 'live' : 'comingSoon',
+    icon: <img src="/qanary.svg" alt="" width={24} height={24} className="h-6 w-6 opacity-70" />,
+    title: 'tierBountyTitle',
+    audience: 'tierBountyFor',
+    body: CANARY_CLUSTER === 'mainnet' ? 'tierBountyBodyLive' : 'tierBountyBody',
+    pricing: 'tierBountyPrice',
+  },
+  {
+    phase: VAULT_CLUSTER === 'mainnet' ? 'live' : 'comingSoon',
+    icon: <Lock className="h-5 w-5" />,
+    title: 'tierVaultTitle',
+    audience: 'tierVaultFor',
+    body: VAULT_CLUSTER === 'mainnet' ? 'tierVaultBodyLive' : 'tierVaultBody',
+    pricing: 'tierVaultPrice',
   },
   {
     phase: 'planned',
@@ -83,7 +100,7 @@ function PhaseTag({ phase }: { phase: Phase }) {
 
 export function BusinessModel() {
   return (
-    <Section id="roadmap" index="05" eyebrow={t('modelEyebrow')} title={t('modelTitle')} sub={t('modelSub')}>
+    <Section id="roadmap" index="05" eyebrow={t('modelEyebrow')} title={t('modelTitle')} sub={DEPLOYMENT.modelSub}>
       <ol className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {TIERS.map((tier, i) => {
           const live = tier.phase === 'live';
