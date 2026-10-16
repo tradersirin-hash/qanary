@@ -92,13 +92,22 @@ export function SolanaResult({ report, onScan, busy }: { report: SolanaReport; o
             <p className="mt-1 flex flex-wrap items-baseline gap-x-2 font-mono text-3xl font-medium tabular-nums text-canary sm:text-4xl">
               {report.totalUsd !== undefined ? (
                 <>
-                  {report.pricesPartial && <span className="font-sans text-base font-normal text-fg-muted">{t('atLeast')}</span>}
+                  {(report.pricesPartial || !report.tokensAvailable) && (
+                    <span className="font-sans text-base font-normal text-fg-muted">{t('atLeast')}</span>
+                  )}
                   <span className="min-w-0 wrap-anywhere">{usd(report.totalUsd)}</span>
                 </>
               ) : (
                 <span className="min-w-0 wrap-anywhere">{`${amount(report.sol)} SOL`}</span>
               )}
             </p>
+            {(!report.tokensAvailable || report.pricesFailed || report.symbolsFailed) && (
+              <Callout tone="caution" className="mt-3">
+                {!report.tokensAvailable && <p>{t('tokensUnavailable')}</p>}
+                {report.pricesFailed && <p>{t(report.totalUsd !== undefined ? 'pricesFailed' : 'pricesUnavailable')}</p>}
+                {report.symbolsFailed && <p>{t('symbolsUnavailable')}</p>}
+              </Callout>
+            )}
             <ul className="mt-4 divide-y divide-line text-sm">
               <li className="flex items-center justify-between gap-4 py-2.5">
                 <span className="flex min-w-0 items-center gap-2">
@@ -129,11 +138,8 @@ export function SolanaResult({ report, onScan, busy }: { report: SolanaReport; o
               ))}
             </ul>
             {hidden > 0 && <p className="mt-2 text-xs text-fg-subtle">{t('moreTokens', { n: hidden })}</p>}
-            {report.pricesPartial && report.totalUsd !== undefined && <p className="mt-2 text-xs text-fg-subtle">{t('pricesPartial')}</p>}
-            {!report.tokensAvailable && (
-              <Callout tone="caution" className="mt-3">
-                {t('tokensUnavailable')}
-              </Callout>
+            {report.pricesPartial && report.totalUsd !== undefined && !report.pricesFailed && (
+              <p className="mt-2 text-xs text-fg-subtle">{t('pricesPartial')}</p>
             )}
           </div>
         )}

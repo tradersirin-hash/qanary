@@ -1,7 +1,7 @@
 import { address, createSolanaRpc, getAddressDecoder, isOffCurveAddress, type Address } from '@solana/kit';
 import type { Key } from '../copy';
 import { SHOWN_TOKENS } from './constants';
-import { fetchHoldings, fetchSolPrice, fetchSymbols, fetchUsdPrices, type Holdings } from './jupiter';
+import { fetchHoldings, fetchSymbols, fetchUsdPrices, jupiterDeadline, WSOL_MINT, type Holdings } from './jupiter';
 
 // api.mainnet-beta.solana.com answers 403 to browser requests (any Origin header), so default to a CORS-friendly
 // public RPC. That one refuses indexed calls (getTokenAccountsByOwner), so token balances come from Jupiter
@@ -73,6 +73,10 @@ export type SolanaReport =
       tokensAvailable: boolean;
       totalUsd?: number;
       pricesPartial: boolean;
+      /** A price lookup (SOL's included) still failed after retries, e.g. under rate limiting. */
+      pricesFailed: boolean;
+      /** The symbol lookup still failed after retries, so names and "Unverified" badges are missing. */
+      symbolsFailed: boolean;
     }
   | { kind: 'program'; address: Address; control: ProgramControl }
   | { kind: 'controlled'; title: Key; body: Key; address: Address; rows: ControlRow[]; sol?: number; scanTarget?: Address }
@@ -221,11 +225,15 @@ async function rpcHoldings(a: Address): Promise<Holdings['tokens'] | null> {
 }
 
 async function scanWallet(a: Address, lamports: bigint): Promise<SolanaReport> {
-  const held = (await fetchHoldings(a))?.tokens ?? (CUSTOM_RPC ? await rpcHoldings(a) : null);
+  const deadline = jupiterDeadline();
+  const held = (await fetchHoldings(a, deadline))?.tokens ?? (CUSTOM_RPC ? await rpcHoldings(a) : null);
   const tokens: TokenHolding[] = (held ?? []).map((h) => ({ mint: address(h.mint), amount: h.amount, uiAmount: h.uiAmount }));
 
-  // SOL is priced on its own so a failed token batch can never drop it from the total.
-  const [solPrice, { prices, partial }] = await Promise.all([fetchSolPrice(), fetchUsdPrices(tokens.map((t) => t.mint as string))]);
+  // One price lookup for SOL (as wrapped SOL) and every token, largest holdings first, so a capped or
+  // rate-limited lookup only loses the long tail.
+  const byAmount = [...tokens].sort((x, y) => y.uiAmount - x.uiAmount).map((t) => t.mint as string);
+  const { prices, partial, failed } = await fetchUsdPrices([WSOL_MINT, ...byAmount], deadline);
+  const solPrice = prices[WSOL_MINT];
   const sol = Number(lamports) / 1e9;
   const solUsd = solPrice !== undefined ? sol * solPrice : undefined;
   for (const t of tokens) {
@@ -234,7 +242,7 @@ async function scanWallet(a: Address, lamports: bigint): Promise<SolanaReport> {
   }
   tokens.sort((x, y) => (y.usd ?? -1) - (x.usd ?? -1) || y.uiAmount - x.uiAmount);
 
-  const symbols = await fetchSymbols(tokens.slice(0, SHOWN_TOKENS).map((t) => t.mint as string));
+  const { symbols, failed: symbolsFailed } = await fetchSymbols(tokens.slice(0, SHOWN_TOKENS).map((t) => t.mint as string), deadline);
   for (const t of tokens.slice(0, SHOWN_TOKENS)) {
     const s = symbols[t.mint];
     if (s) {
@@ -248,9 +256,12 @@ async function scanWallet(a: Address, lamports: bigint): Promise<SolanaReport> {
   const anyPriced = solUsd !== undefined || tokens.some((t) => t.usd !== undefined);
   // Without a SOL price a USD headline would silently leave the SOL out, so show the SOL amount instead.
   const totalUsd = !anyPriced || (solUsd === undefined && sol > 0) ? undefined : (solUsd ?? 0) + tokenUsd;
-  const pricesPartial = partial || tokens.some((t) => t.usd === undefined);
+  const pricesPartial = partial || tokens.some((t) => t.usd === undefined) || (solUsd === undefined && sol > 0);
 
-  return { kind: 'wallet', address: a, key: keyKind(a), sol, solUsd, tokens, tokensAvailable: held !== null, totalUsd, pricesPartial };
+  return {
+    kind: 'wallet', address: a, key: keyKind(a), sol, solUsd, tokens, tokensAvailable: held !== null, totalUsd, pricesPartial,
+    pricesFailed: failed, symbolsFailed,
+  };
 }
 
 const MINT_EXTENSION_ROWS: { extension: string; field: string; label: Key; critical: boolean }[] = [
