@@ -44,6 +44,12 @@ const copy = {
 
   // stats strip
   statusStripLabel: 'Status',
+  tokenEyebrow: 'Official token',
+  tokenName: '$QANARY',
+  tokenOnly: 'This is the only official contract address; any other token using the name is not ours. Launched on pump.fun with no mint or freeze authority and fixed metadata.',
+  tokenDisclaimer: 'Not investment advice. Holding it gives no claim on Qanary or its revenue, and nobody promises anything about its price.',
+  tokenPumpFun: 'pump.fun',
+  tokenScanIt: 'Scan it',
   statCanary: 'Canary',
   statAlive: 'Alive',
   statTripped: 'Tripped',
@@ -452,6 +458,9 @@ const copy = {
   stdIr: 'NIST IR 8547 · Transition to post-quantum cryptography (draft)',
   sourceCode: 'Source code',
   xProfile: 'Qanary on X',
+  telegram: 'Qanary on Telegram',
+  tokenFooterTitle: 'Token · mainnet',
+  tokenLabel: 'Official token ($QANARY)',
   footerBar: 'Unaudited research code · devnet only · never send real funds',
   builtFor: 'Built for the Colosseum hackathon',
 };

@@ -8,6 +8,7 @@ import { QDayClock } from './components/QDayClock';
 import { SiteFooter } from './components/SiteFooter';
 import { SolanaResult } from './components/SolanaResult';
 import { StatsStrip } from './components/StatsStrip';
+import { TokenStrip } from './components/TokenStrip';
 import { Button, Card, cn, LiveTag, Section, Skeleton } from './components/ui';
 import { WalletBar } from './components/WalletBar';
 import { t, type Key } from './copy';
@@ -427,6 +428,7 @@ export default function App() {
             </section>
 
             <StatsStrip view={canary.view} />
+            <TokenStrip />
           </>,
         )}
 

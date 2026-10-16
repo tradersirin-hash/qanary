@@ -1,7 +1,7 @@
 import { t, type Key } from '../copy';
 import { RECORD } from '../data/qday';
-import { BOUNTY_PROGRAM_ID, CANARY_KEY_ID, VAULT_PROGRAM_ID } from '../lib/constants';
-import { explorerDevnet, REPO_URL, STANDARDS, X_URL } from '../lib/links';
+import { BOUNTY_PROGRAM_ID, CANARY_KEY_ID, TOKEN_MINT, VAULT_PROGRAM_ID } from '../lib/constants';
+import { explorerDevnet, REPO_URL, solscanToken, STANDARDS, TELEGRAM_URL, X_URL } from '../lib/links';
 import { ArrowUpRight } from './icons';
 import { AddressChip } from './ui';
 
@@ -48,6 +48,13 @@ export function SiteFooter() {
                 </div>
               ))}
             </dl>
+            <h2 className={`mt-8 ${COLUMN_TITLE}`}>{t('tokenFooterTitle')}</h2>
+            <dl className="mt-4">
+              <dt className="text-xs text-fg-muted">{t('tokenLabel')}</dt>
+              <dd className="mt-1">
+                <AddressChip full value={TOKEN_MINT} href={solscanToken(TOKEN_MINT)} />
+              </dd>
+            </dl>
           </div>
 
           <div className="min-w-0">
@@ -72,6 +79,12 @@ export function SiteFooter() {
               <li>
                 <a href={X_URL} target="_blank" rel="noreferrer" className={LINK}>
                   {t('xProfile')}
+                  <ArrowUpRight className="h-3 w-3 shrink-0" />
+                </a>
+              </li>
+              <li>
+                <a href={TELEGRAM_URL} target="_blank" rel="noreferrer" className={LINK}>
+                  {t('telegram')}
                   <ArrowUpRight className="h-3 w-3 shrink-0" />
                 </a>
               </li>
