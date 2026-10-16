@@ -321,7 +321,7 @@ export function SolInput({
   disabled?: boolean;
 }) {
   return (
-    <div className="relative w-36">
+    <div className="relative w-48">
       <input
         id={id}
         value={value}
@@ -329,7 +329,7 @@ export function SolInput({
         inputMode="decimal"
         autoComplete="off"
         disabled={disabled}
-        className={cn(FIELD, 'pr-12')}
+        className={cn(FIELD, 'pr-11')}
       />
       <span aria-hidden className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-mono text-xs text-fg-subtle">
         SOL

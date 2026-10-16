@@ -1,7 +1,7 @@
 import { generateMnemonic } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
 import { address, lamports, type Address } from '@solana/kit';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { DEPLOYMENT, t, tOn, type Key } from '../copy';
 import { NETWORKS, VAULT_CLUSTER } from '../lib/constants';
 import { friendlyError, isRejection, UserFacingError } from '../lib/errors';
@@ -14,11 +14,13 @@ import {
   checkWithdraw,
   computeLimitIx,
   createVaultIx,
+  DEPOSIT_RESERVE,
   deriveKeys,
   fetchVault,
   isValidPhrase,
   KeyAlreadyUsed,
   MaybeLanded,
+  maxDeposit,
   oneTimeSignature,
   parseSol,
   pendingFor,
@@ -144,7 +146,10 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
   const [allowWallet, setAllowWallet] = useState(false);
   const [keys, setKeys] = useState<VaultKeys | null>(null);
   const [vault, setVault] = useState<VaultState | null>(null);
-  const [depositAmount, setDepositAmount] = useState('0.5');
+  // Empty rather than a fixed default, which could exceed the wallet's balance; Max fills in what it can deposit.
+  const [depositAmount, setDepositAmount] = useState('');
+  const [depositMax, setDepositMax] = useState<bigint | null>(null);
+  const [balanceCheck, setBalanceCheck] = useState(0);
   const [withdrawAmount, setWithdrawAmount] = useState('0.1');
   const [destination, setDestination] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
@@ -158,6 +163,29 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
   const payer = account ? address(account.address) : null;
   const walletName = wallet?.name ?? t('yourWallet');
   const foreignOwner = !!(vault?.owner && payer && vault.owner !== payer);
+
+  // What the wallet can deposit, for Max. Read again with every vault read (so after each action), when the page
+  // regains focus (e.g. back from a faucet) and shortly after an airdrop request.
+  useEffect(() => {
+    if (!payer || !vault) {
+      setDepositMax(null);
+      return;
+    }
+    let live = true;
+    maxDeposit(payer).then(
+      (max) => live && setDepositMax(max),
+      () => live && setDepositMax(null),
+    );
+    return () => {
+      live = false;
+    };
+  }, [payer, vault, balanceCheck]);
+
+  useEffect(() => {
+    const recheck = () => setBalanceCheck((n) => n + 1);
+    window.addEventListener('focus', recheck);
+    return () => window.removeEventListener('focus', recheck);
+  }, []);
 
   /** Reads the vault and derives the pending panel from storage, so it survives wallet rejections and reloads. */
   const reload = async (k: VaultKeys) => {
@@ -412,8 +440,12 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
   const deposit = () => {
     const value = parseSol(depositAmount);
     if (!value) return setStatus({ tone: 'error', text: t('badAmount') });
-    return run('deposit', [t('stepApproveTx', { wallet: walletName }), tv('stepConfirm')], async (go) => {
-      const tx = await send(VAULT_CLUSTER, wallet!, account!, [transferIx(payer!, vault!.address, value)], stepOf(0)(go));
+    return run('deposit', [t('stepCheck'), t('stepApproveTx', { wallet: walletName }), tv('stepConfirm')], async (go) => {
+      // Checked before the wallet is asked, so it never prompts for an amount it cannot cover.
+      const max = await maxDeposit(payer!);
+      setDepositMax(max);
+      if (value > max) return { tone: 'error', text: t('badDeposit', { reserve: sol(DEPOSIT_RESERVE) }) };
+      const tx = await send(VAULT_CLUSTER, wallet!, account!, [transferIx(payer!, vault!.address, value)], stepOf(1)(go));
       return { tone: 'success', text: t('depositOk', { amount: sol(value) }), tx };
     });
   };
@@ -425,6 +457,7 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
       } catch {
         throw new UserFacingError(t('airdropFailed'));
       }
+      setTimeout(() => setBalanceCheck((n) => n + 1), 5_000);
       return { tone: 'success', text: t('airdropOk') };
     });
 
@@ -684,6 +717,15 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
               </label>
               <div className="mt-2 flex flex-wrap items-end gap-2">
                 <SolInput id="deposit-amount" value={depositAmount} onChange={setDepositAmount} disabled={!!busy} />
+                <Button
+                  variant="ghost"
+                  aria-label={t('maxDepositLabel', { reserve: sol(DEPOSIT_RESERVE) })}
+                  title={t('maxDepositLabel', { reserve: sol(DEPOSIT_RESERVE) })}
+                  disabled={!!busy || !depositMax}
+                  onClick={() => depositMax && setDepositAmount(exactSol(depositMax))}
+                >
+                  {t('max')}
+                </Button>
                 <Button loading={busy === 'deposit'} disabled={!!busy} onClick={() => void deposit()}>
                   {t('deposit')}
                 </Button>
@@ -719,6 +761,15 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
                 </label>
                 <div className="mt-2 flex flex-wrap items-end gap-2">
                   <SolInput id="withdraw-amount" value={withdrawAmount} onChange={setWithdrawAmount} disabled={locked} />
+                  <Button
+                    variant="ghost"
+                    aria-label={t('maxWithdrawLabel')}
+                    title={t('maxWithdrawLabel')}
+                    disabled={locked || vault.spendable === 0n}
+                    onClick={() => setWithdrawAmount(exactSol(vault.spendable))}
+                  >
+                    {t('max')}
+                  </Button>
                   <Button
                     variant="primary"
                     className="h-auto! w-full whitespace-normal! py-2 text-center sm:h-10! sm:w-auto sm:py-0 sm:whitespace-nowrap!"

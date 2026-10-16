@@ -79,12 +79,16 @@ const ixTag = (name: string) => sha256(text.encode(`global:${name}`)).slice(0, 8
 export const toHex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 const fromHex = (hex: string) => Uint8Array.from(hex.match(/../g)!.map((h) => parseInt(h, 16)));
 
-/** Exact decimal SOL string to lamports (no float math). Returns null if it is not a valid amount. */
+/** Exact decimal SOL string to lamports (no float math): "0.5", "0,5" and ".5" all work. Returns null unless it is
+ *  a positive amount with at most 9 decimals (no sign, no thousands separators). */
 export function parseSol(input: string): bigint | null {
-  const m = input.trim().match(/^(\d+)(?:\.(\d{1,9}))?$/);
-  if (!m) return null;
-  const lamports = BigInt(m[1]) * 1_000_000_000n + BigInt((m[2] ?? '').padEnd(9, '0'));
-  return lamports <= U64_MAX ? lamports : null;
+  const s = input.trim();
+  // "1,000" may mean one thousand or one, so it is refused rather than guessed.
+  if (/^[1-9]\d{0,2},\d{3}$/.test(s)) return null;
+  const m = s.match(/^(\d*)(?:[.,](\d{1,9}))?$/);
+  if (!m || (!m[1] && !m[2])) return null;
+  const lamports = BigInt(m[1] || '0') * 1_000_000_000n + BigInt((m[2] ?? '').padEnd(9, '0'));
+  return lamports > 0n && lamports <= U64_MAX ? lamports : null;
 }
 
 // ---------- keys ----------
@@ -232,6 +236,16 @@ export const RESERVED_KEYS: ReadonlySet<string> = new Set([
   'NativeLoader1111111111111111111111111111111',
   'Sysvar1111111111111111111111111111111111111',
 ]);
+
+/** 0.01 SOL left in the wallet by a deposit, Max included, so it can still pay rent and later withdrawal fees. */
+export const DEPOSIT_RESERVE = 10_000_000n;
+
+/** The most `owner` can deposit: its confirmed balance minus DEPOSIT_RESERVE. */
+export async function maxDeposit(owner: Address): Promise<bigint> {
+  const { value } = await rpc(VAULT_CLUSTER).getBalance(owner, { commitment: 'confirmed' }).send();
+  const balance = value as bigint;
+  return balance > DEPOSIT_RESERVE ? balance - DEPOSIT_RESERVE : 0n;
+}
 
 export type WithdrawCheck = { ok: true; lamports: bigint; destination: Address } | { ok: false; reason: 'amount' | 'balance' | 'destination' | 'rent' };
 

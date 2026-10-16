@@ -46,11 +46,13 @@ describe('parseSol', () => {
     expect(parseSol('1')).toBe(1_000_000_000n);
     expect(parseSol('0.1')).toBe(100_000_000n);
     expect(parseSol(' 2.000000001 ')).toBe(2_000_000_001n);
-    expect(parseSol('0')).toBe(0n);
+    // A decimal comma and a missing leading digit, as phone keyboards type them.
+    for (const half of ['.5', '0,5', ',5']) expect(parseSol(half), half).toBe(500_000_000n);
+    expect(parseSol('1,5')).toBe(1_500_000_000n);
   });
 
-  it('rejects anything that is not a plain amount', () => {
-    for (const bad of ['', '.5', '1.', '1.0000000001', '-1', '1e9', '1,5', 'abc', '18446744073.709551616']) {
+  it('rejects anything that is not a plain positive amount', () => {
+    for (const bad of ['', '0', '0,0', '1.', '1.0000000001', '-1', '1e9', '1,000', '1,000.5', '1.2.3', 'abc', '18446744073.709551616']) {
       expect(parseSol(bad), bad).toBeNull();
     }
   });

@@ -13,6 +13,8 @@ export const NETWORKS: Record<Cluster, ClusterConfig> = {
   devnet: clusterConfig('devnet', import.meta.env),
   mainnet: clusterConfig('mainnet', import.meta.env),
 };
+/** The official $QANARY token mint (pump.fun, Token-2022, no mint or freeze authority, fixed metadata). */
+export const TOKEN_MINT = 'Baj1wjp5Pd8nWTqExnjpvfXzrhE1RvCgw2ZHSjZ9pump';
 /** How many tokens the wallet card lists; only these get a symbol lookup. */
 export const SHOWN_TOKENS = 8;
 /** Rust tests passing in `onchain/` (`bash scripts/wsl-build.sh`); keep in sync with the suite. 0 hides the line. */
