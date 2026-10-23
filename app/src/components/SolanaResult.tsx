@@ -5,6 +5,7 @@ import { solscan } from '../lib/links';
 import { Link, PATHS } from '../lib/router';
 import type { Authority, ControlRow, ProgramControl, SolanaReport } from '../lib/solana';
 import { AddressChip, Badge, Button, Callout, Card, ResultHeader, type Tone } from './ui';
+import { SolanaWalletHelp } from './WalletHelp';
 
 const BODY = 'text-sm leading-6 text-fg-muted';
 const EYEBROW = 'font-mono text-[11px] font-medium uppercase tracking-[0.16em] text-fg-subtle';
@@ -84,6 +85,7 @@ export function SolanaResult({ report, onScan, busy }: { report: SolanaReport; o
           verdict={exposed ? 'vExposed' : 'vPda'}
         />
         <p className={BODY}>{t(exposed ? 'walletExposedBody' : 'walletPdaBody')}</p>
+        {exposed && <SolanaWalletHelp />}
         {empty && report.tokensAvailable ? (
           <p className={`mt-4 ${BODY}`}>{t(exposed ? 'walletEmpty' : 'walletPdaEmpty')}</p>
         ) : (

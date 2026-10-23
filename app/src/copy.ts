@@ -133,6 +133,23 @@ const copy = {
   tokensUnavailable: 'Token balances could not be loaded right now, so only SOL is counted and the total is a lower bound. Try again in a moment.',
   bridgeVault: 'This key is public forever. See the alternative:',
   bridgeVaultLink: 'a vault behind post-quantum signatures, live on {cluster}',
+  helpTitle: 'What can I do?',
+  helpRecord: 'No quantum computer can derive the private key from this public key yet: the largest elliptic-curve key broken on one so far has {bits} bits, and this key has {target}.',
+  helpSolCalm:
+    'Nothing is broken, and nothing needs fixing today. Every standard Solana address is an Ed25519 public key, so every Solana wallet shows this.',
+  helpSolPlan:
+    "There is no way to hide a Solana address's key. The plan is to move larger holdings once post-quantum wallets are available on Solana; Anza and Firedancer have picked Falcon for them.",
+  helpSolWatch:
+    'Meanwhile, {canary}: an on-chain flag that flips once someone proves Ed25519 keys can be broken, on devnet until its mainnet launch. You can also {vault} on {vaultCluster}.',
+  helpSolWatchLive:
+    'Meanwhile, {canary}: an on-chain flag on mainnet that flips once someone proves Ed25519 keys can be broken. You can also {vault} on {vaultCluster}.',
+  helpCanaryLink: 'watch the canary',
+  helpVaultLink: 'try the post-quantum vault',
+  helpEvmCalm: 'Nothing is urgent today.',
+  helpEvmWhy:
+    'An EVM address keeps its public key hidden until the key signs something: a transaction, an EIP-7702 delegation, or a message such as a permit. This key already has.',
+  helpEvmMove:
+    'To act early, move funds to a fresh address that has never signed anything, on any chain. Its key stays hidden until that address signs something.',
 
   programTitle: 'Solana program',
   upgradeAuthority: 'Upgrade authority',
@@ -263,7 +280,11 @@ const copy = {
     "Unaudited research code holding real SOL: deposit only amounts you can afford to lose. Set your wallet's network to mainnet before you sign.",
   getDevnetSol: 'Get devnet SOL',
   airdropOk: 'Requested 1 devnet SOL. It usually arrives within a few seconds.',
-  airdropFailed: 'The devnet faucet is rate-limiting right now. Try faucet.solana.com.',
+  airdropFailed: 'The devnet airdrop is rate-limited right now. Get devnet SOL from the web faucet instead.',
+  faucetOpen: 'Open faucet.solana.com',
+  faucetOr: 'or use faucet.solana.com',
+  faucetGet: 'Get devnet SOL at faucet.solana.com',
+  opensNewTab: '(opens in a new tab)',
   viewTx: 'View on Solana Explorer ({cluster})',
 
   // vault
