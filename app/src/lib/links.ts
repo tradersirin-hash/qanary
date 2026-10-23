@@ -4,6 +4,8 @@ export const SITE_URL = 'https://qanary.xyz';
 export const REPO_URL = 'https://github.com/tradersirin-hash/qanary';
 export const X_URL = 'https://x.com/Qanaryxyz';
 export const TELEGRAM_URL = 'https://t.me/qanaryxyz';
+/** Solana's web faucet for devnet SOL, for when the RPC airdrop is rate-limited. */
+export const FAUCET_URL = 'https://faucet.solana.com';
 export const explorerDevnet = (path: string) => `https://explorer.solana.com/${path}?cluster=devnet`;
 export const solscan = (addr: string) => `https://solscan.io/account/${addr}`;
 export const solscanToken = (mint: string) => `https://solscan.io/token/${mint}`;

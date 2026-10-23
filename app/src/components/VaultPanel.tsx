@@ -6,7 +6,7 @@ import { t, type Key } from '../copy';
 import { friendlyError, isRejection, UserFacingError } from '../lib/errors';
 import { amount, exactSol, short } from '../lib/format';
 import * as lmots from '../lib/lmots';
-import { explorerDevnet } from '../lib/links';
+import { explorerDevnet, FAUCET_URL } from '../lib/links';
 import {
   canaryAddress,
   checkWithdraw,
@@ -445,16 +445,31 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
       try {
         await devnet.requestAirdrop(payer!, lamports(1_000_000_000n)).send();
       } catch {
-        throw new UserFacingError(t('airdropFailed'));
+        return { tone: 'error', text: t('airdropFailed'), link: { href: FAUCET_URL, label: t('faucetOpen') } };
       }
       setTimeout(() => setBalanceCheck((n) => n + 1), 5_000);
       return { tone: 'success', text: t('airdropOk') };
     });
 
-  const airdropButton = payer && (
-    <Button variant="ghost" size="sm" loading={busy === 'airdrop'} disabled={!!busy} onClick={() => void airdrop()}>
-      {t('getDevnetSol')}
-    </Button>
+  // The RPC airdrop is often rate-limited, so the web faucet is always one click away, with or without a wallet.
+  const devnetSolControls = (
+    <>
+      {payer && (
+        <Button variant="ghost" size="sm" loading={busy === 'airdrop'} disabled={!!busy} onClick={() => void airdrop()}>
+          {t('getDevnetSol')}
+        </Button>
+      )}
+      <a
+        href={FAUCET_URL}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-1 self-center text-xs font-medium text-canary hover:underline"
+      >
+        {t(payer ? 'faucetOr' : 'faucetGet')}
+        <ArrowUpRight className="h-3 w-3" />
+        <span className="sr-only"> {t('opensNewTab')}</span>
+      </a>
+    </>
   );
 
   const pendingCopy = (request: SignedRequest) => (
@@ -496,7 +511,7 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
                 <Button size="lg" onClick={startOpen}>
                   {t('openVault')}
                 </Button>
-                {airdropButton}
+                {devnetSolControls}
               </div>
               {!account && (
                 <p className="mt-3 text-xs leading-5 text-fg-subtle">
@@ -681,7 +696,7 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
                 <Button loading={busy === 'deposit'} disabled={!!busy} onClick={() => void deposit()}>
                   {t('deposit')}
                 </Button>
-                {airdropButton}
+                {devnetSolControls}
               </div>
             </div>
 

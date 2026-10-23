@@ -3,6 +3,7 @@ import type { EvmChainResult, EvmOverall, EvmReport } from '../lib/evm';
 import { amount } from '../lib/format';
 import { etherscan } from '../lib/links';
 import { Badge, Card, ResultHeader, type Tone } from './ui';
+import { EvmWalletHelp } from './WalletHelp';
 
 const overallView: Record<EvmOverall, [Tone, Key, Key]> = {
   exposed: ['bad', 'vExposed', 'evmExposedBody'],
@@ -28,6 +29,7 @@ export function EvmResult({ report }: { report: EvmReport }) {
     <Card>
       <ResultHeader title="evmTitle" address={report.address} href={etherscan(report.address)} tone={tone} verdict={verdict} />
       <p className="text-sm leading-6 text-fg-muted">{t(body)}</p>
+      {report.overall === 'exposed' && <EvmWalletHelp />}
 
       <div className="mt-5 overflow-x-auto" tabIndex={0} role="region" aria-label={t('evmTableCaption')}>
         <table className="w-full text-left text-sm">

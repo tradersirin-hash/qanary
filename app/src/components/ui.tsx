@@ -342,7 +342,7 @@ export function Skeleton({ className }: { className?: string }) {
 }
 
 export type Progress = { labels: string[]; active: number };
-export type Status = { tone: 'success' | 'error'; text: string; tx?: string; details?: string };
+export type Status = { tone: 'success' | 'error'; text: string; tx?: string; details?: string; link?: { href: string; label: string } };
 
 function FeedbackBox({ status }: { status: Status }) {
   const ok = status.tone === 'success';
@@ -366,6 +366,18 @@ function FeedbackBox({ status }: { status: Status }) {
           >
             {t('viewTx')}
             <ArrowUpRight className="h-3 w-3" />
+          </a>
+        )}
+        {status.link && (
+          <a
+            href={status.link.href}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1 inline-flex items-center gap-1 font-medium underline underline-offset-2 hover:text-fg"
+          >
+            {status.link.label}
+            <ArrowUpRight className="h-3 w-3" />
+            <span className="sr-only"> {t('opensNewTab')}</span>
           </a>
         )}
         {status.details && (
