@@ -74,4 +74,4 @@ Each part has its own page (`/`, `/how`, `/vault`, `/bounty`, `/qday`, `/roadmap
 - Qanary API as the first paid product, then Watchtower.
 - Token-2022 and SPL withdrawals in the web app (already in the program).
 - Canary flag adopted by other programs (multisigs, treasuries).
-- `$QNRY`: fair launch with no presale; creator fees fund the bounty pool and an audit.
+- `$QANARY`: launched on pump.fun as a fair launch with no presale (mint `Baj1wjp5Pd8nWTqExnjpvfXzrhE1RvCgw2ZHSjZ9pump`); the plan is for creator fees to fund the bounty pool and an audit.
