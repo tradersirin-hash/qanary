@@ -7,6 +7,7 @@ resolver = "2"
 [workspace.package]
 edition = "2021"
 rust-version = "1.89.0"
+license = "Apache-2.0"
 
 [profile.release]
 # Program accounts pay rent per byte, so optimize for size: about 12 KB (0.06 SOL) less for the bounty.

@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "On-chain quantum canary: a bounty behind an Ed25519 key nobody knows"
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
 
 [lib]
 crate-type = ["cdylib", "lib"]

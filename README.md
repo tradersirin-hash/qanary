@@ -72,3 +72,7 @@ Scan stays free and the canary flag stays a public good. The plan, none of it li
 - Qanary Scan reads through third-party public RPC endpoints (and Jupiter's price API), which can see which addresses are looked up.
 - No quantum computer can break 256-bit elliptic-curve keys today. The public record is a 15-bit key (April 2026).
 - The programs are unaudited research code running on devnet. Do not use them with real funds.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).

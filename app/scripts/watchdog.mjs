@@ -1,4 +1,5 @@
-// Canary watchdog, run every 30 minutes by .github/workflows/watchdog.yml (and by hand: node scripts/watchdog.mjs).
+// Canary watchdog, scheduled twice an hour by .github/workflows/watchdog.yml (GitHub runs it a few times a day in
+// practice) and runnable by hand: node scripts/watchdog.mjs.
 //
 // Reads the canary and the honeypot balance on CLUSTER (devnet, the default, or mainnet) through RPC_URL
 // (default: the public RPC of that cluster; on devnet the older DEVNET_RPC is still read). Lamports at the

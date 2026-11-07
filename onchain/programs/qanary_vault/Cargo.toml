@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "SOL and SPL token custody behind hash-based post-quantum (LM-OTS) signatures"
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
 
 [lib]
 crate-type = ["cdylib", "lib"]
