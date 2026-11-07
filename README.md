@@ -60,6 +60,10 @@ Scan stays free and the canary flag stays a public good. The plan, none of it li
 - No quantum computer can break 256-bit elliptic-curve keys today. The public record is a 15-bit key (April 2026).
 - The programs are unaudited research code running on devnet. Do not use them with real funds.
 
+## Reports
+
+- [Solana quantum readiness, November 2026](docs/readiness/2026-11.md): who can upgrade the 62 programs behind Solana's 25 largest DeFi protocols, and who can mint or freeze 22 large Solana tokens. Read-only, re-runnable with `app/scripts/readiness.mjs`.
+
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE).
