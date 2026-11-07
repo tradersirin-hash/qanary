@@ -1,8 +1,9 @@
 name: Canary watchdog
 
-# Every 30 minutes: read the devnet canary and honeypot. If the honeypot dropped below its baseline, trip the
-# canary on-chain (check_honeypot is permissionless) and open an issue. GitHub runs scheduled workflows only
-# from the default branch, and pauses them after 60 days without commits; "Run workflow" starts one by hand,
+# Scheduled twice an hour: read the devnet canary and honeypot. If the honeypot dropped below its baseline, trip the
+# canary on-chain (check_honeypot is permissionless) and open an issue. GitHub delays and drops scheduled runs, so in
+# practice it runs a few times a day (3 to 5 in late October 2026). It runs scheduled workflows only from the default
+# branch, and pauses them after 60 days without commits; "Run workflow" starts one by hand,
 # and its "force check" box sends check_honeypot even when nothing dropped, to test the fee-payer key.
 on:
   schedule:

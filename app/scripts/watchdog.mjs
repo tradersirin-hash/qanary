@@ -1,4 +1,5 @@
-// Canary watchdog, run every 30 minutes by .github/workflows/watchdog.yml (and by hand: node scripts/watchdog.mjs).
+// Canary watchdog, scheduled twice an hour by .github/workflows/watchdog.yml (GitHub runs it a few times a day in
+// practice) and runnable by hand: node scripts/watchdog.mjs.
 //
 // Reads the devnet canary and the honeypot balance. Lamports at the canary key can only go down if its
 // private key signed, so a balance below the recorded baseline means someone broke the key: the watchdog
