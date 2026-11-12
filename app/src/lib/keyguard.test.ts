@@ -337,6 +337,34 @@ describe('oneTimeSignature under failures', () => {
     expect(await page.oneTimeSignature(keys, vaultAt(q), withdrawalMessage(q, 9_000n), withdrawal(9_000n))).toEqual(signature(q, 9_000n));
   });
 
+  it('lets a request another tab signed win over one this page could not write', async () => {
+    const q = 28;
+    chain.history = [handOver(q)];
+    const store = new Map<string, string>();
+    let full = true;
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => {
+        if (full && k === slot(q)) throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+        store.set(k, v);
+      },
+      removeItem: (k: string) => void store.delete(k),
+    });
+
+    // This page signs, cannot write its record and returns nothing. Space frees up and another tab, which never saw
+    // that record, signs a different request and returns it.
+    await expect(sign(q, 5_000n)).rejects.toThrow('quota');
+    full = false;
+    const other = await reload();
+    expect(await other.oneTimeSignature(keys, vaultAt(q), withdrawalMessage(q, 9_000n), withdrawal(9_000n))).toEqual(signature(q, 9_000n));
+
+    // The other tab's request may be on its way, so this page must not return its own one now.
+    const e = await refusal(q, 5_000n);
+    expect(e).toBeInstanceOf(KeyAlreadyUsed);
+    expect((e as KeyAlreadyUsed).pending).toEqual(withdrawal(9_000n));
+    expect(pendingFor(VAULT, q)).toEqual(withdrawal(9_000n));
+  });
+
   it('signs nothing when its stored record is damaged', async () => {
     const q = 22;
     chain.history = [handOver(q)];
@@ -401,12 +429,17 @@ describe('oneTimeSignature under failures', () => {
       },
     });
 
-    const results = await Promise.allSettled([sign(q, 5_000n), sign(q, 9_000n)]);
+    // The second tab is its own copy of the module: it shares only storage, the lock and the chain with the first.
+    const other = await reload();
+    const results = await Promise.allSettled([
+      sign(q, 5_000n),
+      other.oneTimeSignature(keys, vaultAt(q), withdrawalMessage(q, 9_000n), withdrawal(9_000n)),
+    ]);
     const signed = results.filter((r): r is PromiseFulfilledResult<Uint8Array> => r.status === 'fulfilled');
     const refused = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
     expect(signed.map((r) => r.value)).toEqual([signature(q, 5_000n)]);
     expect(refused).toHaveLength(1);
-    expect(refused[0].reason).toBeInstanceOf(KeyAlreadyUsed);
+    expect(refused[0].reason).toBeInstanceOf(other.KeyAlreadyUsed);
     expect((refused[0].reason as KeyAlreadyUsed).pending).toEqual(withdrawal(5_000n));
   });
 
@@ -441,12 +474,15 @@ describe('oneTimeSignature under failures', () => {
       const at = `seed 0x${SEED.toString(16)}, input ${i}`;
       const kind = below(4); // a post-quantum instruction's tag, or 8 random bytes
       const tag = kind < 3 ? pqTags[kind] : randomBytes(8);
-      // Half the inputs are steered past the length checks, so the decoder rebuilds a message and runs the LM-OTS
-      // check on a random signature of the LM-OTS type.
+      // Half the inputs are steered past the signature checks. Half of those carry arguments of the exact size, so the
+      // decoder rebuilds a message and runs the LM-OTS check on a random signature of the LM-OTS type; the rest carry
+      // arguments cut short or overlong.
       const steered = below(2) === 1;
       const length = new Uint8Array(4);
       new DataView(length.buffer).setUint32(0, steered || below(2) ? lmots.SIG_LEN : random(), true);
-      const args = (kind === 2 ? 1 + 32 * below(2) : 8) + lmots.N; // set_owner: Option<Pubkey>; the rest: u64
+      const exact = (kind === 2 ? 1 + 32 * below(2) : 8) + lmots.N; // set_owner: Option<Pubkey>; the rest: u64
+      const sizing = below(4);
+      const args = sizing < 2 ? exact : sizing === 2 ? below(8) : below(exact + 9);
       const rest = randomBytes(steered ? lmots.SIG_LEN + args : below(1_601));
       if (steered) {
         new DataView(rest.buffer).setUint32(0, lmots.LMOTS_TYPE);

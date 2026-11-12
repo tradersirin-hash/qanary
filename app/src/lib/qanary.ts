@@ -411,7 +411,7 @@ export type SignedRequest = { kind: 'withdrawSol'; destination: string; amount: 
 type Pending = { message: string; signature: string; request: SignedRequest };
 
 const PENDING_PREFIX = 'qanary:signed:';
-/** Survives storage failures within this page. */
+/** Survives storage failures within this page; storage, which every tab shares, is read first. */
 const memoryPending = new Map<string, Pending>();
 
 export class KeyAlreadyUsed extends Error {
@@ -471,9 +471,7 @@ const isRequest = (r: unknown): r is SignedRequest => {
   return v.kind === 'setOwner' && (v.owner === null || typeof v.owner === 'string');
 };
 
-function readRecord(slot: string): StoredRecord {
-  const remembered = memoryPending.get(slot);
-  if (remembered) return remembered;
+function readStored(slot: string): StoredRecord {
   try {
     const raw = localStorage.getItem(slot);
     if (raw === null) return null;
@@ -484,6 +482,12 @@ function readRecord(slot: string): StoredRecord {
   } catch {
     return 'unreadable';
   }
+}
+
+/** Storage first: another tab may have signed and written a record since this page wrote its own. This page's record
+ *  counts only while storage holds none, as after a write that failed. */
+function readRecord(slot: string): StoredRecord {
+  return readStored(slot) ?? memoryPending.get(slot) ?? null;
 }
 
 /** The request a one-time key already signed but that has not landed yet, if any. Read-only; never throws. */
