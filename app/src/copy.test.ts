@@ -84,6 +84,10 @@ describe('scan copy', () => {
     expect(t('tokenOnly')).not.toMatch(/pump/i);
     expect(t('tokenDisclaimer')).toMatch(/^Not investment advice\./);
   });
+
+  it('calls the planned monitoring tier Qanary Watch', () => {
+    expect(t('tierWatchTitle')).toBe('Qanary Watch');
+  });
 });
 
 describe('copy on mainnet', () => {

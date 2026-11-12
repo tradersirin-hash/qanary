@@ -470,7 +470,7 @@ const copy = {
   tierApiBody:
     "The scan engine as an API. Warn users about an exposed key before they deposit, and check a token's mint, freeze and permanent-delegate keys before listing it.",
   tierApiPrice: 'Usage-based, with a free tier',
-  tierWatchTitle: 'Qanary Watchtower',
+  tierWatchTitle: 'Qanary Watch',
   tierWatchFor: 'For teams, funds and power users',
   tierWatchBody:
     'Continuous monitoring of your addresses, programs and mints. Alerts when an upgrade or mint authority changes hands, a new exposed key takes control, or value piles up behind a single key.',
