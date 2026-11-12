@@ -90,6 +90,15 @@ describe('scan copy', () => {
   });
 });
 
+describe('vault copy', () => {
+  it('names the one-time key whose record cannot be read, and calls nothing safe', () => {
+    const text = t('pendingUnreadable', { n: 7 });
+    expect(text).not.toMatch(/\{\w+\}/);
+    expect(text).toMatch(/^This browser's record of what one-time key #7 signed cannot be read, .* with key #7, wait for it to land\.$/);
+    expect(text).not.toMatch(/safe/i);
+  });
+});
+
 describe('copy on mainnet', () => {
   it('fills every slot and never says devnet', () => {
     for (const key of Object.keys(DEVNET) as Key[]) {
