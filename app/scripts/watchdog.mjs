@@ -43,7 +43,7 @@ import {
   setTransactionMessageLifetimeUsingBlockhash,
   signTransactionMessageWithSigners,
 } from '@solana/kit';
-import { failsRun, findSignature, historyNote, honeypotCheck, watchStatus } from './watchdog-logic.mjs';
+import { decodeCanary, failsRun, findSignature, historyNote, honeypotCheck, watchStatus } from './watchdog-logic.mjs';
 
 const BOUNTY_PROGRAM = address('HhrtGaEUk6Tar4cdCHkgTZj7jY5YXha4wjfdm8EteXRV');
 const CANARY_KEY = address('4H3XvrAPRRJuSaTZJt3XSRpEVPCPKJjWy69jDkx1VNwZ');
@@ -67,17 +67,18 @@ function report(fields) {
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `${lines.join('\n')}\n`);
 }
 
-/** Canary account: disc 8 | tripped 1 | tripped_slot 8 | claimer 32 | honeypot_baseline 8 | total_funded 8 | bump 1.
- *  Read in one call with the honeypot, so the baseline and the balance come from the same slot: two calls could
- *  straddle a fund_honeypot and report a drop that never happened. */
+/** The canary account (see decodeCanary), read in one call with the honeypot, so the baseline and the balance come
+ *  from the same slot: two calls could straddle a fund_honeypot and report a drop that never happened. A reply that
+ *  leaves out an account is refused, since a missing honeypot would read as an empty one. */
 async function readCanary(canary) {
-  const {
-    value: [account, honeypot],
-  } = await rpc.getMultipleAccounts([canary, CANARY_KEY], { encoding: 'base64', commitment: 'confirmed' }).send();
+  const { value } = await rpc.getMultipleAccounts([canary, CANARY_KEY], { encoding: 'base64', commitment: 'confirmed' }).send();
+  if (value.length !== 2) throw new Error(`getMultipleAccounts returned ${value.length} accounts for 2`);
+  const [account, honeypot] = value;
   if (!account || account.owner !== BOUNTY_PROGRAM) return null;
-  const d = Buffer.from(account.data[0], 'base64');
-  if (d.length < 66) return null;
-  return { tripped: d[8] === 1, baseline: d.readBigUInt64LE(49), balance: honeypot?.lamports ?? 0n };
+  const decoded = decodeCanary(Buffer.from(account.data[0], 'base64'));
+  if (!decoded) return null;
+  // No account at the canary key means no lamports there.
+  return { ...decoded, balance: honeypot === null ? 0n : honeypot.lamports };
 }
 
 async function confirm(signature) {

@@ -1,6 +1,16 @@
 // The canary watchdog's decisions, kept apart from its RPC calls in watchdog.mjs so that watchdog-logic.test.mjs can
 // check them without a network.
 
+/** The canary account's data: disc 8 | tripped 1 | tripped_slot 8 | claimer 32 | honeypot_baseline 8 | total_funded 8 |
+ *  bump 1. Returns null when `bytes` (a Uint8Array; a Buffer works) is too short to hold all of it. */
+export function decodeCanary(bytes) {
+  if (bytes.length < 66) return null;
+  return {
+    tripped: bytes[8] === 1,
+    baseline: new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getBigUint64(49, true),
+  };
+}
+
 /** Why the watchdog sends check_honeypot to a canary that is not tripped, or null when it has no reason to.
  *  - 'drop': the honeypot fell below its baseline. Only the canary key can cause that, so the program trips the canary.
  *  - 'surplus': the honeypot holds more than its baseline (a plain transfer, not fund_honeypot). The program raises the

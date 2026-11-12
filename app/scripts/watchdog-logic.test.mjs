@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { failsRun, findSignature, historyNote, honeypotCheck, signedBy, watchStatus } from './watchdog-logic.mjs';
+import { decodeCanary, failsRun, findSignature, historyNote, honeypotCheck, signedBy, watchStatus } from './watchdog-logic.mjs';
 
 const CANARY_KEY = '4H3XvrAPRRJuSaTZJt3XSRpEVPCPKJjWy69jDkx1VNwZ';
 const PAYER = 'Payer11111111111111111111111111111111111111';
@@ -28,6 +28,25 @@ function chain(transactions) {
 
 const deposit = tx([PAYER, CANARY_KEY, PROGRAM], 1);
 const signedByCanary = tx([PAYER, CANARY_KEY, PROGRAM], 2);
+
+describe('decodeCanary', () => {
+  it('reads the flag and the baseline at their offsets', () => {
+    const tripped = Buffer.from(
+      'c0d1d6c5571c5273010807060504030201cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc18171615141312112827262524232221fe',
+      'hex',
+    );
+    expect(decodeCanary(tripped)).toEqual({ tripped: true, baseline: 0x1112131415161718n });
+    const alive = Buffer.from('wNHWxVccUnMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACj4REAAAAAAKPhEQAAAAD/', 'base64');
+    expect(decodeCanary(alive)).toEqual({ tripped: false, baseline: 300_000_000n });
+    // A plain Uint8Array that starts inside a larger buffer reads the same.
+    expect(decodeCanary(new Uint8Array([0xee, ...tripped]).subarray(1))).toEqual({ tripped: true, baseline: 0x1112131415161718n });
+  });
+
+  it('refuses data too short to hold the whole account', () => {
+    expect(decodeCanary(new Uint8Array(65))).toBeNull();
+    expect(decodeCanary(new Uint8Array(0))).toBeNull();
+  });
+});
 
 describe('honeypotCheck', () => {
   it('trips on a drop, raises the baseline on a surplus, and sends nothing when they match', () => {
