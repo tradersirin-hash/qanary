@@ -1,7 +1,8 @@
 name: Canary watchdog
 
 # Scheduled twice an hour: read the canary and honeypot on each cluster. If a honeypot dropped below its baseline, trip
-# that canary on-chain (check_honeypot is permissionless) and open an issue naming the cluster. GitHub delays and drops
+# that canary on-chain (check_honeypot is permissionless) and open an issue naming the cluster; if it holds more, raise
+# the baseline the same way. Also open an issue if the canary key signed any recent transaction. GitHub delays and drops
 # scheduled runs, so in practice it runs a few times a day (3 to 5 in late October 2026). The devnet job always runs;
 # the mainnet job runs only once the repository variable MAINNET_CANARY is 'true' (set it after the mainnet canary is
 # initialized). GitHub runs scheduled workflows only from the default branch, and pauses them after 60 days without
@@ -64,6 +65,8 @@ jobs:
           BASELINE: ${{ steps.check.outputs.baseline }}
           TX: ${{ steps.check.outputs.tx }}
           ERROR: ${{ steps.check.outputs.error }}
+          SIGNED_TX: ${{ steps.check.outputs.signed_tx }}
+          HISTORY: ${{ steps.check.outputs.history }}
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: bash scripts/watchdog-alert.sh
 
@@ -109,5 +112,7 @@ jobs:
           BASELINE: ${{ steps.check.outputs.baseline }}
           TX: ${{ steps.check.outputs.tx }}
           ERROR: ${{ steps.check.outputs.error }}
+          SIGNED_TX: ${{ steps.check.outputs.signed_tx }}
+          HISTORY: ${{ steps.check.outputs.history }}
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: bash scripts/watchdog-alert.sh
