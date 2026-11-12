@@ -41,7 +41,7 @@ Programs: vault [`DoYraMDno33DYCUytDMvdGWWcsNz1Qm983K15pHnzaqu`](https://explore
 Scan stays free, and the canary flag stays a free public good. Revenue is planned to come from the tools around them, roughly in this order (the site's Roadmap page shows the same plan):
 
 1. **Qanary API** for wallets, exchanges and custodians: warn users about an exposed key before they deposit, and check a token's mint, freeze and permanent-delegate keys before listing it. Usage-based, with a free tier.
-2. **Qanary Watchtower** for teams, funds and power users: continuous monitoring of addresses, programs and mints, with alerts when an upgrade or mint authority changes hands, a new exposed key takes control, or value piles up behind a single key. Monthly subscription.
+2. **Qanary Watch** for teams, funds and power users: continuous monitoring of addresses, programs and mints, with alerts when an upgrade or mint authority changes hands, a new exposed key takes control, or value piles up behind a single key. Monthly subscription.
 3. **Quantum-readiness reports** for protocols, foundations and treasuries: every key that controls a protocol, what it guards, and what to migrate first. Fixed fee per report.
 4. **Canary integration** for protocols, multisigs and DAOs: read the flag from your own program and close classical paths when it trips. The flag is free to read; we charge for designing, integrating and testing the switch. Starts once the canary runs audited and immutable on mainnet.
 5. **Qanary Vault Pro** for DAOs and treasuries: spending limits, time locks and approval by several people on post-quantum vaults. Only after an independent audit, since it would hold funds.
@@ -55,7 +55,7 @@ Each part has its own page (`/`, `/how`, `/vault`, `/bounty`, `/qday`, `/roadmap
 1. **Scan** (30 s). Paste a large exchange wallet: "over a billion dollars behind one public key". Paste the USDC mint: mint and freeze authority are each a 2-of-4 multisig, and all eight signers are plain Ed25519 keys. Open the Q-Day page.
 2. **Vault** (50 s). Open the Vault page and connect Phantom on devnet. Create a vault: show the 24-word phrase. Deposit 0.5 SOL. Withdraw 0.1 SOL with a post-quantum signature: the explorer shows the transaction, and the vault's key counter moves from 0 to 1.
 3. **Canary** (25 s). On the Bounty page, show the bounty pool and honeypot. Explain: the day someone signs for this key, the flag flips and every vault's classical path closes. Back on the Vault page (the open vault stays loaded), show the wallet-withdraw button disappearing when the canary is tripped (devnet test or recording).
-4. **Roadmap** (15 s). Scan is free; the API, Watchtower, reports and canary integration are how Qanary plans to earn; Vault Pro waits for an audit.
+4. **Roadmap** (15 s). Scan is free; the API, Watch, reports and canary integration are how Qanary plans to earn; Vault Pro waits for an audit.
 
 ## Honest limits
 
@@ -71,7 +71,7 @@ Each part has its own page (`/`, `/how`, `/vault`, `/bounty`, `/qday`, `/roadmap
 ## Next
 
 - Audit, then mainnet.
-- Qanary API as the first paid product, then Watchtower.
+- Qanary API as the first paid product, then Watch.
 - Token-2022 and SPL withdrawals in the web app (already in the program).
 - Canary flag adopted by other programs (multisigs, treasuries).
 - `$QANARY`: launched on pump.fun as a fair launch with no presale (mint `Baj1wjp5Pd8nWTqExnjpvfXzrhE1RvCgw2ZHSjZ9pump`); the plan is for creator fees to fund the bounty pool and an audit.

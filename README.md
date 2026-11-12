@@ -59,9 +59,23 @@ The plan is to launch the Bounty on mainnet first and keep the unaudited Vault o
 3. Add the GitHub secret `WATCHDOG_MAINNET_KEYPAIR` (a fee-only key holding a little SOL; optional `MAINNET_RPC_URL`) and set the repository variable `MAINNET_CANARY=true`. The watchdog's mainnet job stays off until then; its alerts are labelled `canary-mainnet`.
 4. Set `VITE_CANARY_CLUSTER=mainnet` on the host and redeploy the site.
 
+## Prior art and how Qanary differs
+
+Qanary Scan, Qanary Vault and the planned Qanary Watch each have prior art:
+
+- **Change monitors.** [Helius Watchtower](https://github.com/helius-labs/watchtower), the Solana Foundation's [Solana Microscope](https://github.com/solana-foundation/solana-microscope), the Squads [multisig monitor](https://github.com/Solana-Multisig-Tools/multisig-monitor) and [Range](https://docs.range.org/alerting/introduction) alert a team when the programs and multisigs it watches change: upgrades, authority transfers, and member, threshold or time-lock changes.
+- **Post-quantum vaults.** Blueshift published a [Winternitz vault](https://github.com/blueshift-gg/solana-winternitz-vault) for Solana in January 2025, holding lamports behind hash-based one-time signatures. Qanary Vault is another design in this space (devnet only, unaudited) and doubles as the reference program that reads the canary.
+- **Exposure checks.** [QuantumTrace](https://quantumtrace.vercel.app) offers a free, read-only quantum-exposure check for Solana and EVM addresses.
+
+What Qanary adds:
+
+- **Answers for anyone who depends on a program or token**, not only for the team that runs it: who can change it, how strong that control is (one Ed25519 key, m of n multisig keys, a time lock, or no key at all), and how that was established (read from the account, confirmed by re-deriving the address, or inferred from transactions and marked unconfirmed). Scan reads the authorities of any Solana address; the census answers all three for the 62 programs behind Solana's 25 largest DeFi protocols and for 22 large tokens.
+- **A repeatable public census.** [Solana quantum readiness](docs/readiness/2026-11.md) publishes aggregates only, from an open script that anyone can re-run, so the same questions can be asked again and changes show over time. November 2026 is the first edition.
+- **A canary flag that programs can read.** The bounty's `tripped` flag is set on-chain by proof that someone can sign with an Ed25519 key nobody holds (a bounty claim, or a drop in that key's honeypot), not by a trusted signer. It runs on devnet for now, where any program can read it and close its classical paths.
+
 ## Business model
 
-Scan stays free and the canary flag stays a public good. The plan, none of it live yet: a **Qanary API** for wallets, exchanges and custodians; **Qanary Watchtower**, paid monitoring and alerts for a team's addresses, programs and mints; **quantum-readiness reports** for protocols and treasuries; paid **canary integration** for protocols, multisigs and DAOs once the canary is audited and immutable on mainnet; and **Qanary Vault Pro** with treasury policies, only after an independent audit. Canary alerts will be free for everyone, and a share of paid revenue is meant to top up the bounty pool. See the site's Roadmap page.
+Scan stays free and the canary flag stays a public good. The plan, none of it live yet: a **Qanary API** for wallets, exchanges and custodians; **Qanary Watch**, paid monitoring and alerts for a team's addresses, programs and mints; **quantum-readiness reports** for protocols and treasuries; paid **canary integration** for protocols, multisigs and DAOs once the canary is audited and immutable on mainnet; and **Qanary Vault Pro** with treasury policies, only after an independent audit. Canary alerts will be free for everyone, and a share of paid revenue is meant to top up the bounty pool. See the site's Roadmap page.
 
 ## Honest claims
 
