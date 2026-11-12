@@ -10,19 +10,20 @@
 // dropped only refreshes the baseline, so a wrong guess is harmless.
 //
 // A drop shows only while it lasts: a key-breaker could drain the honeypot and refill it between two runs, or
-// sign without moving any SOL. So the watchdog also reads the newest HISTORY_LIMIT transactions (default 100)
-// that mention the canary key, and reports any that the key signed: that is proof of a broken key even when the
-// balance looks intact. The program cannot take a signature as proof yet, so this opens an issue but leaves the
-// flag untripped. Each run reads only the newest ones, so a flood of more than HISTORY_LIMIT transactions
-// between two runs could push a signed one out of view; a key that never signs on-chain stays invisible.
+// sign without moving any SOL. So the watchdog also reads the transactions that mention the canary key in the last
+// LOOKBACK_HOURS (default 48, well beyond the usual gap between runs), up to HISTORY_LIMIT of them (default 100),
+// and reports any that the key signed: that is proof of a broken key even when the balance looks intact. The
+// program cannot take a signature as proof yet, so this opens an issue but leaves the flag untripped. When the
+// window holds more than HISTORY_LIMIT transactions, a signed one could hide among those not read, so the run
+// reports history_gap, which opens an issue too, instead of alive. A key that never signs on-chain stays invisible.
 //
 // Fee payer, needed only to send: the WATCHDOG_KEYPAIR secret if set (a JSON array of 64 secret-key bytes, or
 // 64 hex chars of a 32-byte seed); otherwise, on devnet, a throwaway key funded by an airdrop at the moment it
 // is needed. Mainnet has no airdrop, so without a key the watchdog still reads and reports, and only a send fails.
-// Writes cluster=… and status=alive|drained|signed|tripped|missing (and details) to $GITHUB_OUTPUT for the
-// workflow's alert step. A send that fails while nothing is wrong (a forced check, or raising the baseline, say
+// Writes cluster=… and status=alive|drained|signed|history_gap|tripped|missing (and details) to $GITHUB_OUTPUT for
+// the workflow's alert step. A send that fails while nothing is wrong (a forced check, or raising the baseline, say
 // with a malformed WATCHDOG_KEYPAIR) fails the run, and so does a history that could not be read, so neither
-// passes for alive; a real drop or a signature never does, so the alert step still opens the issue.
+// passes for alive; a real drop, a signature or a history gap never does, so the alert step still opens the issue.
 import { appendFileSync } from 'node:fs';
 import { sha256 } from '@noble/hashes/sha2';
 import {
@@ -43,7 +44,7 @@ import {
   setTransactionMessageLifetimeUsingBlockhash,
   signTransactionMessageWithSigners,
 } from '@solana/kit';
-import { failsRun, findSignature, historyNote, honeypotCheck, watchStatus } from './watchdog-logic.mjs';
+import { decodeCanary, failsRun, findSignature, historyNote, honeypotCheck, watchStatus } from './watchdog-logic.mjs';
 
 const BOUNTY_PROGRAM = address('HhrtGaEUk6Tar4cdCHkgTZj7jY5YXha4wjfdm8EteXRV');
 const CANARY_KEY = address('4H3XvrAPRRJuSaTZJt3XSRpEVPCPKJjWy69jDkx1VNwZ');
@@ -56,10 +57,14 @@ const cluster = process.env.CLUSTER || 'devnet';
 if (!Object.hasOwn(CLUSTERS, cluster)) throw new Error(`CLUSTER must be devnet or mainnet, not "${cluster}"`);
 const rpc = createSolanaRpc(process.env.RPC_URL || (cluster === 'devnet' && process.env.DEVNET_RPC) || CLUSTERS[cluster].rpc);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-// How many of the newest transactions that mention the canary key each run reads: one getSignaturesForAddress call
-// per 1000, then one getTransaction each.
+// The most transactions that mention the canary key each run reads from its lookback window: one
+// getSignaturesForAddress call per 1000, then one getTransaction each. A window that holds more reports history_gap.
 const HISTORY_LIMIT = Number(process.env.HISTORY_LIMIT || 100);
 if (!Number.isInteger(HISTORY_LIMIT) || HISTORY_LIMIT < 1) throw new Error(`HISTORY_LIMIT must be a whole number above 0, not "${process.env.HISTORY_LIMIT}"`);
+// How many hours of the canary key's history each run reads. The window has to reach back past the previous run, so
+// that a transaction signed between two runs is still in it.
+const LOOKBACK_HOURS = Number(process.env.LOOKBACK_HOURS || 48);
+if (!Number.isInteger(LOOKBACK_HOURS) || LOOKBACK_HOURS < 1) throw new Error(`LOOKBACK_HOURS must be a whole number above 0, not "${process.env.LOOKBACK_HOURS}"`);
 
 function report(fields) {
   const lines = Object.entries(fields).map(([k, v]) => `${k}=${String(v).replace(/\n/g, ' ')}`);
@@ -67,17 +72,18 @@ function report(fields) {
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `${lines.join('\n')}\n`);
 }
 
-/** Canary account: disc 8 | tripped 1 | tripped_slot 8 | claimer 32 | honeypot_baseline 8 | total_funded 8 | bump 1.
- *  Read in one call with the honeypot, so the baseline and the balance come from the same slot: two calls could
- *  straddle a fund_honeypot and report a drop that never happened. */
+/** The canary account (see decodeCanary), read in one call with the honeypot, so the baseline and the balance come
+ *  from the same slot: two calls could straddle a fund_honeypot and report a drop that never happened. A reply that
+ *  leaves out an account is refused, since a missing honeypot would read as an empty one. */
 async function readCanary(canary) {
-  const {
-    value: [account, honeypot],
-  } = await rpc.getMultipleAccounts([canary, CANARY_KEY], { encoding: 'base64', commitment: 'confirmed' }).send();
+  const { value } = await rpc.getMultipleAccounts([canary, CANARY_KEY], { encoding: 'base64', commitment: 'confirmed' }).send();
+  if (value.length !== 2) throw new Error(`getMultipleAccounts returned ${value.length} accounts for 2`);
+  const [account, honeypot] = value;
   if (!account || account.owner !== BOUNTY_PROGRAM) return null;
-  const d = Buffer.from(account.data[0], 'base64');
-  if (d.length < 66) return null;
-  return { tripped: d[8] === 1, baseline: d.readBigUInt64LE(49), balance: honeypot?.lamports ?? 0n };
+  const decoded = decodeCanary(Buffer.from(account.data[0], 'base64'));
+  if (!decoded) return null;
+  // No account at the canary key means no lamports there.
+  return { ...decoded, balance: honeypot === null ? 0n : honeypot.lamports };
 }
 
 async function confirm(signature) {
@@ -141,13 +147,18 @@ async function checkHoneypot(canary) {
 /** Sends an RPC request, and once more after a pause if it fails: the public RPCs answer a burst with 429. */
 const retryOnce = (send) => send().catch(() => sleep(2000).then(send));
 
-/** The first transaction the canary key signed, if any, among the newest HISTORY_LIMIT that mention it. Reads are
- *  paced to stay under the public RPCs' per-method limit (about 4 calls a second). */
-async function signedHistory() {
+/** The first transaction the canary key signed, if any, among those that mention it since `since` (unix seconds), at
+ *  most HISTORY_LIMIT of them, and whether the window holds more. Reads are paced to stay under the public RPCs'
+ *  per-method limit (about 4 calls a second). */
+async function signedHistory(since) {
   return findSignature({
     key: CANARY_KEY,
     limit: HISTORY_LIMIT,
-    page: (before, limit) => retryOnce(() => rpc.getSignaturesForAddress(CANARY_KEY, { before, limit, commitment: 'confirmed' }).send()),
+    since,
+    page: async (before, limit) => {
+      const entries = await retryOnce(() => rpc.getSignaturesForAddress(CANARY_KEY, { before, limit, commitment: 'confirmed' }).send());
+      return entries.map((entry) => ({ signature: entry.signature, blockTime: entry.blockTime == null ? null : Number(entry.blockTime) }));
+    },
     read: async (signature) => {
       await sleep(300);
       return retryOnce(() =>
@@ -182,17 +193,20 @@ if (!state) {
     after = await readCanary(canary);
   }
   let signedTx = '';
+  let gap = false;
   let history;
   let historyError = '';
   try {
-    const found = await signedHistory();
+    const since = Math.floor(Date.now() / 1000) - LOOKBACK_HOURS * 3600;
+    const found = await signedHistory(since);
     signedTx = found.signed ?? '';
-    history = historyNote(found);
+    gap = found.gap;
+    history = historyNote({ ...found, since, limit: HISTORY_LIMIT });
   } catch (e) {
     historyError = e instanceof Error ? e.message : String(e);
     history = `not read: ${historyError}`;
   }
-  const status = watchStatus({ tripped: !!after?.tripped, check, signed: !!signedTx });
+  const status = watchStatus({ tripped: !!after?.tripped, check, signed: !!signedTx, gap });
   report({
     cluster,
     status,

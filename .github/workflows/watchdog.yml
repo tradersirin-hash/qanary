@@ -2,12 +2,14 @@ name: Canary watchdog
 
 # Scheduled twice an hour: read the canary and honeypot on each cluster. If a honeypot dropped below its baseline, trip
 # that canary on-chain (check_honeypot is permissionless) and open an issue naming the cluster; if it holds more, raise
-# the baseline the same way. Also open an issue if the canary key signed any recent transaction. GitHub delays and drops
-# scheduled runs, so in practice it runs a few times a day (3 to 5 in late October 2026). The devnet job always runs;
-# the mainnet job runs only once the repository variable MAINNET_CANARY is 'true' (set it after the mainnet canary is
-# initialized). GitHub runs scheduled workflows only from the default branch, and pauses them after 60 days without
-# commits; "Run workflow" starts one by hand, and its "force check" box sends check_honeypot on every cluster even when
-# nothing dropped, to test the fee-payer keys.
+# the baseline the same way. Also open an issue if the canary key signed any transaction in the last 48 hours, or
+# (history_gap) if that window holds more transactions than the watchdog reads, so a signed one cannot be ruled out.
+# An open issue holds back only a new one with the same cluster and status; each issue links docs/canary-runbook.md as
+# of the commit the run used. GitHub delays and drops scheduled runs, so in practice it runs a few times a day (3 to 5
+# in late October 2026). The devnet job always runs; the mainnet job runs only once the repository variable
+# MAINNET_CANARY is 'true' (set it after the mainnet canary is initialized). GitHub runs scheduled workflows only from
+# the default branch, and pauses them after 60 days without commits; "Run workflow" starts one by hand, and its "force
+# check" box sends check_honeypot on every cluster even when nothing dropped, to test the fee-payer keys.
 on:
   schedule:
     - cron: '7,37 * * * *'
@@ -68,6 +70,8 @@ jobs:
           SIGNED_TX: ${{ steps.check.outputs.signed_tx }}
           HISTORY: ${{ steps.check.outputs.history }}
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # Pinned to the commit this run used, so the steps match the watchdog that opened the issue.
+          RUNBOOK: ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/docs/canary-runbook.md
         run: bash scripts/watchdog-alert.sh
 
   watch-mainnet:
@@ -115,4 +119,6 @@ jobs:
           SIGNED_TX: ${{ steps.check.outputs.signed_tx }}
           HISTORY: ${{ steps.check.outputs.history }}
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # Pinned to the commit this run used, so the steps match the watchdog that opened the issue.
+          RUNBOOK: ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/docs/canary-runbook.md
         run: bash scripts/watchdog-alert.sh

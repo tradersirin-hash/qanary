@@ -56,7 +56,7 @@ The plan is to launch the Bounty on mainnet first and keep the unaudited Vault o
 
 1. `QANARY_MAINNET_PAYER=<payer.json> bash onchain/scripts/deploy-mainnet.sh` is a dry run: it prints the exact rent, fees and payer balance, checks every security.txt link, and refuses the default Solana CLI keypair. Add `--yes` to deploy. The Vault needs both its name as an argument and `QANARY_ALLOW_UNAUDITED_VAULT=1`. `QANARY_UPGRADE_AUTHORITY` hands the upgrade authority to another key after the deploy.
 2. `node app/scripts/canary-setup.mjs --cluster mainnet --keypair <payer.json> --pool <lamports> --honeypot <lamports>` is also a dry run until `--yes`. It initializes the canary and funds the pool and the honeypot in one transaction, and refuses an existing mainnet canary.
-3. Add the GitHub secret `WATCHDOG_MAINNET_KEYPAIR` (a fee-only key holding a little SOL; optional `MAINNET_RPC_URL`) and set the repository variable `MAINNET_CANARY=true`. The watchdog's mainnet job stays off until then; its alerts are labelled `canary-mainnet`.
+3. Add the GitHub secret `WATCHDOG_MAINNET_KEYPAIR` (a fee-only key holding a little SOL; optional `MAINNET_RPC_URL`) and set the repository variable `MAINNET_CANARY=true`. The watchdog's mainnet job stays off until then; its alerts are labelled `canary-mainnet`. When an alert opens, follow [docs/canary-runbook.md](docs/canary-runbook.md).
 4. Set `VITE_CANARY_CLUSTER=mainnet` on the host and redeploy the site.
 
 ## Prior art and how Qanary differs
