@@ -182,7 +182,7 @@ pub fn handle_pq_withdraw_token(
         &Action::WithdrawToken { mint, destination, amount },
     )?;
 
-    let decimals = match token_transfer_check(&ctx.accounts, amount) {
+    let decimals = match token_transfer_check(ctx.accounts, amount) {
         Ok(decimals) => decimals,
         Err((available, reason)) => {
             emit!(ActionSkipped {

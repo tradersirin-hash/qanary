@@ -156,6 +156,7 @@ impl Env {
     }
 
     /// A token account at `address` with `ext` written straight into it.
+    #[allow(clippy::too_many_arguments)]
     fn token_account(
         &mut self,
         address: Pubkey,

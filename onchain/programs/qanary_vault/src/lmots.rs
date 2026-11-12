@@ -123,6 +123,7 @@ pub mod signer {
 
     /// Signs `message` with one-time key `q`. `c` is the n-byte randomizer; the caller must use
     /// each `q` for exactly one message.
+    #[allow(clippy::needless_range_loop)] // `i` is also the chain index (RFC 8554 Algorithm 3)
     pub fn sign(id: &[u8; ID_LEN], q: u32, seed: &Hash, message: &[u8], c: &Hash) -> Vec<u8> {
         let a = digits(&message_hash(id, q, c, message));
         let mut sig = Vec::with_capacity(SIG_LEN);
@@ -205,7 +206,7 @@ mod tests {
 
     #[test]
     fn random_keys_and_messages_sign_and_verify_and_any_flipped_bit_breaks_it() {
-        let mut rng = Rng(0x5eed_0f_9a_ab);
+        let mut rng = Rng(0x5e_ed_0f_9a_ab);
         for round in 0..64 {
             let id: [u8; ID_LEN] = rng.array();
             let seed: Hash = rng.array();
@@ -241,7 +242,7 @@ mod tests {
 
     #[test]
     fn arbitrary_bytes_never_panic_or_verify() {
-        let mut rng = Rng(0xbad_5_19);
+        let mut rng = Rng(0xba_d5_19);
         let k = public_key(&ID, 3, &SEED);
         for _ in 0..500 {
             let len = if rng.below(2) == 0 { SIG_LEN } else { rng.below(2 * SIG_LEN) };

@@ -222,7 +222,7 @@ impl Env {
                     Account { lamports, data: vec![], owner: system_program::ID, executable: false, rent_epoch: 0 },
                 )
                 .unwrap();
-            self.send(&[check.clone()], &[]).unwrap();
+            self.send(std::slice::from_ref(&check), &[]).unwrap();
         }
     }
 }
