@@ -386,7 +386,7 @@ export async function scanSolana(input: string): Promise<SolanaReport> {
     }
   }
 
-  // Any other program-owned account: its safety is its owner program's upgrade authority.
+  // Any other program-owned account: only its owner program's upgrade authority is read, not keys in its state.
   const owner = address(head.owner);
   const ownerHead = await readHead(owner, 0);
   return { kind: 'account', address: a, owner, ownerControl: ownerHead ? await programControl(owner, ownerHead.owner) : undefined };
