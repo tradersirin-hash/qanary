@@ -54,8 +54,12 @@ fn create_ix(payer: &Pubkey, id: [u8; 16], genesis: lmots::Hash) -> Instruction 
     Instruction::new_with_bytes(
         qanary_vault::id(),
         &qanary_vault::instruction::CreateVault { id, key: genesis }.data(),
-        qanary_vault::accounts::CreateVault { payer: *payer, vault: vault_pda(&id, &genesis), system_program: system_program::ID }
-            .to_account_metas(None),
+        qanary_vault::accounts::CreateVault {
+            payer: *payer,
+            vault: vault_pda(&id, &genesis),
+            system_program: system_program::ID,
+        }
+        .to_account_metas(None),
     )
 }
 
@@ -141,7 +145,13 @@ impl Env {
         signer::sign(&ID, q, &SEED, &action.message(&self.vault, q, next), &[q as u8; lmots::N])
     }
 
-    fn pq_withdraw_sol(&mut self, signature: Vec<u8>, destination: Pubkey, amount: u64, next_key: lmots::Hash) -> Result<u64, String> {
+    fn pq_withdraw_sol(
+        &mut self,
+        signature: Vec<u8>,
+        destination: Pubkey,
+        amount: u64,
+        next_key: lmots::Hash,
+    ) -> Result<u64, String> {
         self.pq_withdraw_sol_meta(signature, destination, amount, next_key, true)
     }
 
@@ -186,8 +196,13 @@ impl Env {
         let ix = Instruction::new_with_bytes(
             qanary_vault::id(),
             &qanary_vault::instruction::WithdrawSol { amount }.data(),
-            qanary_vault::accounts::WithdrawSol { vault: self.vault, owner: signer.pubkey(), destination, canary: canary_pda() }
-                .to_account_metas(None),
+            qanary_vault::accounts::WithdrawSol {
+                vault: self.vault,
+                owner: signer.pubkey(),
+                destination,
+                canary: canary_pda(),
+            }
+            .to_account_metas(None),
         );
         let signer = signer.insecure_clone();
         self.send(&[ix], &[&signer])
@@ -197,11 +212,15 @@ impl Env {
         let check = Instruction::new_with_bytes(
             qanary_bounty::id(),
             &qanary_bounty::instruction::CheckHoneypot {}.data(),
-            qanary_bounty::accounts::CheckHoneypot { honeypot: CANARY_KEY, canary: canary_pda() }.to_account_metas(None),
+            qanary_bounty::accounts::CheckHoneypot { honeypot: CANARY_KEY, canary: canary_pda() }
+                .to_account_metas(None),
         );
         for lamports in [5 * SOL, 4 * SOL] {
             self.svm
-                .set_account(CANARY_KEY, Account { lamports, data: vec![], owner: system_program::ID, executable: false, rent_epoch: 0 })
+                .set_account(
+                    CANARY_KEY,
+                    Account { lamports, data: vec![], owner: system_program::ID, executable: false, rent_epoch: 0 },
+                )
                 .unwrap();
             self.send(&[check.clone()], &[]).unwrap();
         }

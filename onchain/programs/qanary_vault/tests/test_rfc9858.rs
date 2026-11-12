@@ -3,7 +3,10 @@
 //! checks the verifier (signature -> LM-OTS public key -> Merkle root) and the signer (RFC 8554
 //! Appendix A key derivation, then a byte-exact signature).
 
-use {qanary_vault::lmots::{self, signer}, solana_sha256_hasher::hashv};
+use {
+    qanary_vault::lmots::{self, signer},
+    solana_sha256_hasher::hashv,
+};
 
 const SEED: &str = "000102030405060708090a0b0c0d0e0f1011121314151617";
 const I: &str = "202122232425262728292a2b2c2d2e2f";

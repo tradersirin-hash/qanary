@@ -25,7 +25,10 @@ fn expected(name: &'static str) -> Vec<(&'static str, &'static str)> {
     vec![
         ("name", name),
         ("project_url", "https://qanary.xyz"),
-        ("contacts", "link:https://github.com/tradersirin-hash/qanary/security/advisories/new,link:https://x.com/Qanaryxyz"),
+        (
+            "contacts",
+            "link:https://github.com/tradersirin-hash/qanary/security/advisories/new,link:https://x.com/Qanaryxyz",
+        ),
         ("policy", "https://github.com/tradersirin-hash/qanary/blob/main/SECURITY.md"),
         ("preferred_languages", "en"),
         ("source_code", "https://github.com/tradersirin-hash/qanary"),
@@ -52,7 +55,8 @@ fn u16_at(b: &[u8], at: usize) -> usize {
 
 /// (name, virtual address, file offset, size) of every section of a little-endian ELF64 file.
 fn sections(elf: &[u8]) -> Vec<(String, usize, usize, usize)> {
-    let (shoff, shentsize, shnum, shstrndx) = (u64_at(elf, 0x28), u16_at(elf, 0x3a), u16_at(elf, 0x3c), u16_at(elf, 0x3e));
+    let (shoff, shentsize, shnum, shstrndx) =
+        (u64_at(elf, 0x28), u16_at(elf, 0x3a), u16_at(elf, 0x3c), u16_at(elf, 0x3e));
     let header = |i: usize| &elf[shoff + i * shentsize..][..shentsize];
     let names = u64_at(header(shstrndx), 24);
     (0..shnum)
@@ -79,15 +83,21 @@ fn security_txt(program: &str) -> Vec<(String, String)> {
 
     // The section holds a &str: the virtual address and length of exactly that string.
     let sections = sections(&elf);
-    let (_, _, offset, size) =
-        sections.iter().find(|s| s.0 == ".security.txt").unwrap_or_else(|| panic!("{program}: no .security.txt section"));
+    let (_, _, offset, size) = sections
+        .iter()
+        .find(|s| s.0 == ".security.txt")
+        .unwrap_or_else(|| panic!("{program}: no .security.txt section"));
     assert_eq!(*size, 16, "{program}: pointer and length");
     let (address, len) = (u64_at(&elf, *offset), u64_at(&elf, offset + 8));
     let (_, base, file, _) = sections
         .iter()
         .find(|(_, a, _, s)| *a <= address && address + len <= a + s)
         .unwrap_or_else(|| panic!("{program}: .security.txt points outside every section"));
-    assert_eq!((file + (address - base), len), (start, stop - start), "{program}: .security.txt points at the marked string");
+    assert_eq!(
+        (file + (address - base), len),
+        (start, stop - start),
+        "{program}: .security.txt points at the marked string"
+    );
 
     let body = std::str::from_utf8(&elf[start + BEGIN.len()..stop - END.len()]).expect("UTF-8");
     let parts: Vec<&str> = body.strip_suffix('\0').expect("NUL after the last value").split('\0').collect();
@@ -97,7 +107,10 @@ fn security_txt(program: &str) -> Vec<(String, String)> {
     let keys: std::collections::BTreeSet<&str> = fields.iter().map(|(k, _)| k.as_str()).collect();
     assert_eq!(keys.len(), fields.len(), "{program}: no duplicate fields");
     assert!(keys.iter().all(|k| KNOWN.contains(k)), "{program}: only known fields");
-    assert!(["name", "project_url", "contacts", "policy"].iter().all(|k| keys.contains(k)), "{program}: required fields");
+    assert!(
+        ["name", "project_url", "contacts", "policy"].iter().all(|k| keys.contains(k)),
+        "{program}: required fields"
+    );
     let contacts = &fields.iter().find(|(k, _)| k == "contacts").unwrap().1;
     for contact in contacts.split(',') {
         let (kind, info) = contact.split_once(':').unwrap_or_else(|| panic!("{program}: contact {contact:?}"));

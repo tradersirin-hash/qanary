@@ -57,7 +57,8 @@ fn fund_ix(funder: &Pubkey, amount: u64) -> Instruction {
     Instruction::new_with_bytes(
         qanary_bounty::id(),
         &qanary_bounty::instruction::Fund { amount }.data(),
-        qanary_bounty::accounts::Fund { funder: *funder, canary: canary_pda(), system_program: system_program::ID }.to_account_metas(None),
+        qanary_bounty::accounts::Fund { funder: *funder, canary: canary_pda(), system_program: system_program::ID }
+            .to_account_metas(None),
     )
 }
 
@@ -70,8 +71,11 @@ fn check_ix() -> Instruction {
 }
 
 fn set_honeypot(svm: &mut LiteSVM, lamports: u64) {
-    svm.set_account(CANARY_KEY, Account { lamports, data: vec![], owner: system_program::ID, executable: false, rent_epoch: 0 })
-        .unwrap();
+    svm.set_account(
+        CANARY_KEY,
+        Account { lamports, data: vec![], owner: system_program::ID, executable: false, rent_epoch: 0 },
+    )
+    .unwrap();
 }
 
 #[test]
@@ -140,7 +144,8 @@ fn claim_tx(svm: &LiteSVM, payer: &Keypair, recipient: &Pubkey) -> Transaction {
     let ix = Instruction::new_with_bytes(
         qanary_bounty::id(),
         &qanary_bounty::instruction::Claim {}.data(),
-        qanary_bounty::accounts::Claim { canary_key: CANARY_KEY, recipient: *recipient, canary: canary_pda() }.to_account_metas(None),
+        qanary_bounty::accounts::Claim { canary_key: CANARY_KEY, recipient: *recipient, canary: canary_pda() }
+            .to_account_metas(None),
     );
     let blockhash = svm.latest_blockhash();
     let mut tx = Transaction::new_unsigned(Message::new(&[ix], Some(&payer.pubkey())));

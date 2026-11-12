@@ -49,15 +49,30 @@ pub mod qanary_vault {
         crate::instructions::create_vault::handle_create_vault(ctx, id, key)
     }
 
-    pub fn pq_withdraw_sol(ctx: Context<PqWithdrawSol>, signature: Vec<u8>, amount: u64, next_key: [u8; 24]) -> Result<()> {
+    pub fn pq_withdraw_sol(
+        ctx: Context<PqWithdrawSol>,
+        signature: Vec<u8>,
+        amount: u64,
+        next_key: [u8; 24],
+    ) -> Result<()> {
         crate::instructions::pq::handle_pq_withdraw_sol(ctx, signature, amount, next_key)
     }
 
-    pub fn pq_withdraw_token(ctx: Context<PqWithdrawToken>, signature: Vec<u8>, amount: u64, next_key: [u8; 24]) -> Result<()> {
+    pub fn pq_withdraw_token(
+        ctx: Context<PqWithdrawToken>,
+        signature: Vec<u8>,
+        amount: u64,
+        next_key: [u8; 24],
+    ) -> Result<()> {
         crate::instructions::pq::handle_pq_withdraw_token(ctx, signature, amount, next_key)
     }
 
-    pub fn pq_set_owner(ctx: Context<PqSetOwner>, signature: Vec<u8>, owner: Option<Pubkey>, next_key: [u8; 24]) -> Result<()> {
+    pub fn pq_set_owner(
+        ctx: Context<PqSetOwner>,
+        signature: Vec<u8>,
+        owner: Option<Pubkey>,
+        next_key: [u8; 24],
+    ) -> Result<()> {
         crate::instructions::pq::handle_pq_set_owner(ctx, signature, owner, next_key)
     }
 

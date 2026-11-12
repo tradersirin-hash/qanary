@@ -173,10 +173,7 @@ mod tests {
         let k = public_key(&ID, 3, &SEED);
         assert_eq!(hex(&k), "d3a3647eb7e32a772106f3935ab16bb82aec44f883e47fcf");
         let sig = sign(&ID, 3, &SEED, b"hello", &[1; N]);
-        assert_eq!(
-            hex(&hashv(&[&sig]).to_bytes()),
-            "7bc52378563d816a1bc09818f6f20f4b771dd1b5ef9487a38f621ea5769cdf64"
-        );
+        assert_eq!(hex(&hashv(&[&sig]).to_bytes()), "7bc52378563d816a1bc09818f6f20f4b771dd1b5ef9487a38f621ea5769cdf64");
     }
 
     #[test]
