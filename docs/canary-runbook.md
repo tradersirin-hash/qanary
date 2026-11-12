@@ -12,7 +12,7 @@ The canary is the Qanary Bounty program's account `DDNM18i4XcRS2n2Uwh8BaYQcJhJZB
   - `signed`: the canary key signed a transaction in the last 48 hours, while the honeypot is not below its baseline.
   - `history_gap`: more transactions mentioned the canary key in the last 48 hours than the watchdog reads (`HISTORY_LIMIT`, 100 by default), so it could not rule out one the key signed. Anyone can cause this with dust transfers, about 0.0005 SOL in fees: it means "could not verify", not "broken".
   - `missing`: the canary account could not be read.
-- **A failed run** of the Canary watchdog workflow: a fee payer that could not send a forced check or a baseline raise, a history that could not be read, an RPC that serves another cluster, or an RPC reply that left out an account. It opens no issue, so it shows only in the Actions tab and GitHub's failed-run notifications.
+- **A failed run** of the Canary watchdog workflow: a fee payer that could not send a forced check or a baseline raise, a history that could not be read, an RPC that serves another cluster, or an RPC reply that left out an account. It opens no issue, so it shows only in the Actions tab and GitHub's failed-run notifications. When the step that failed is "Open an alert issue", an alert was due but GitHub did not take the issue: the `status=` line of the step before it names the alert, so handle it as that status.
 - **The red state on /bounty and in the home stats strip.** The site reads the canary live, and shows red when the flag is tripped or the honeypot is below its baseline.
 - **An outside report** through [SECURITY.md](../SECURITY.md). Keep it private as that policy says, and verify it with the steps below like any alert.
 
@@ -69,7 +69,7 @@ cd app && CLUSTER=<cluster> RPC_URL=<keyed RPC URL> HISTORY_LIMIT=<more than the
 
 It reads about three transactions a second, prints `history=read X of Y transactions since <time>` and `signed_tx=`, and reports `history_gap` again if the limit was still too low. Run that way, it also sends `check_honeypot` if the honeypot moved, which is the same harmless call the scheduled run would make. If the key signed nothing, close the issue, recording the range you checked (the first and last signature, and their times). If it signed one, handle it as `signed`. Until then say nothing publicly. While the flood goes on, each run opens a new `history_gap` issue once the previous one is closed; check only the hours after the range already recorded.
 
-**`missing`, or a failed run.** Operational only: fix the RPC endpoint, the fee payer (`WATCHDOG_KEYPAIR` or `WATCHDOG_MAINNET_KEYPAIR` and its balance) or the deployment, and say nothing publicly.
+**`missing`, or a failed run.** Operational only: fix the RPC endpoint, the fee payer (`WATCHDOG_KEYPAIR` or `WATCHDOG_MAINNET_KEYPAIR` and its balance) or the deployment, and say nothing publicly. A failed "Open an alert issue" step is the exception: an alert was due, so handle it under its status above (section 1 says where to read it).
 
 ## 4. Communicate
 

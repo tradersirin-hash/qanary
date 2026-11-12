@@ -9,7 +9,10 @@ set -eo pipefail
 TITLE="Canary watchdog ($CLUSTER): $STATUS"
 export TITLE
 gh label create "$LABEL" --color FFD23F --description "Canary watchdog alerts" --force
-if [ "$(gh issue list --label "$LABEL" --state open --json title --jq '[.[] | select(.title == env.TITLE)] | length')" != "0" ]; then
+# A plain assignment, so that set -e fails the step when the list cannot be read: inside the test below, a failed
+# list would read as an open issue and drop the alert.
+open=$(gh issue list --label "$LABEL" --state open --json title --jq '[.[] | select(.title == env.TITLE)] | length')
+if [ "$open" != "0" ]; then
   echo "An open issue titled \"$TITLE\" already exists, so no new one is opened."
   exit 0
 fi
