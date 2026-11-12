@@ -163,6 +163,9 @@ export async function fetchVault(a: Address): Promise<VaultState | null> {
 export type CanaryState = {
   address: Address;
   tripped: boolean;
+  /** The slot of the first trip; 0 while not tripped. */
+  trippedSlot: bigint;
+  /** The first claim's recipient, set only when a claim tripped the canary first; null otherwise. */
   claimer: Address | null;
   honeypotBaseline: bigint;
   honeypotLamports: bigint;
@@ -185,6 +188,7 @@ export async function fetchCanary(cluster: Cluster = CANARY_CLUSTER): Promise<Ca
   return {
     address: a,
     tripped: d[8] === 1,
+    trippedSlot: view.getBigUint64(9, true),
     claimer: claimer === SYSTEM_PROGRAM ? null : claimer,
     honeypotBaseline: view.getBigUint64(49, true),
     honeypotLamports: honeypot.value as bigint,

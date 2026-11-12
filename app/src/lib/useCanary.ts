@@ -11,6 +11,10 @@ export type CanaryView =
 
 export const knownCanary = (v: CanaryView) => (v.kind === 'live' ? v.state : v.kind === 'error' ? v.last : undefined);
 
+/** The honeypot fell below its recorded baseline while the flag is still down. Only the canary key can move that SOL,
+ *  so the key is already broken; the flag trips once anyone sends check_honeypot (the watchdog check). */
+export const honeypotDrained = (c: CanaryState) => !c.tripped && c.honeypotLamports < c.honeypotBaseline;
+
 /** Canary state on `cluster` for the stats strip, the vault and the bounty panel; App holds one per cluster it shows.
  *  Polls only while `active` (a page that shows canary data is open) and refreshes as soon as it becomes active. */
 export function useCanary(active = true, cluster: Cluster = CANARY_CLUSTER) {
