@@ -79,6 +79,11 @@ describe('scan copy', () => {
     expect(t('notChecked')).toBe('Not checked: admin, config, pause or fee keys stored in program state. This card shows only who can upgrade the code.');
     expect(t('evmNativeNote')).toMatch(/^Basic check: /);
   });
+
+  it('names the official token only with its disclaimer, with no market link', () => {
+    expect(t('tokenOnly')).not.toMatch(/pump/i);
+    expect(t('tokenDisclaimer')).toMatch(/^Not investment advice\./);
+  });
 });
 
 describe('copy on mainnet', () => {

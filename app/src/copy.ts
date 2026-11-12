@@ -52,12 +52,6 @@ const copy = {
 
   // stats strip
   statusStripLabel: 'Status',
-  tokenEyebrow: 'Official token',
-  tokenName: '$QANARY',
-  tokenOnly: 'This is the only official contract address; any other token using the name is not ours. Launched on pump.fun with no mint or freeze authority and fixed metadata.',
-  tokenDisclaimer: 'Not investment advice. Holding it gives no claim on Qanary or its revenue, and nobody promises anything about its price.',
-  tokenPumpFun: 'pump.fun',
-  tokenScanIt: 'Scan it',
   statCanary: 'Canary',
   statAlive: 'Alive',
   statTripped: 'Tripped',
@@ -537,6 +531,9 @@ const copy = {
   telegram: 'Qanary on Telegram',
   tokenFooterTitle: 'Token · mainnet',
   tokenLabel: 'Official token ($QANARY)',
+  tokenOnly:
+    'This is the only official contract address; any other token using the name is not ours. It has no mint or freeze authority and fixed metadata.',
+  tokenDisclaimer: 'Not investment advice. Holding it gives no claim on Qanary or its revenue, and nobody promises anything about its price.',
   footerBar: 'Unaudited research code · devnet only · never send real funds',
   footerBarMainnet: 'Unaudited research code · mainnet · use only amounts you can afford to lose',
   footerBarSplit: 'Unaudited research code · {mainnet} on mainnet · {devnet} on devnet only · use only amounts you can afford to lose',

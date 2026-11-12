@@ -57,6 +57,9 @@ export function SiteFooter() {
               <dd className="mt-1">
                 <AddressChip full value={TOKEN_MINT} href={solscanToken(TOKEN_MINT)} />
               </dd>
+              <dd className="mt-2 text-xs leading-5 text-fg-subtle">
+                {t('tokenOnly')} {t('tokenDisclaimer')}
+              </dd>
             </dl>
           </div>
 
