@@ -509,7 +509,7 @@ const TAG_WITHDRAW_SOL = toHex(ixTag('pq_withdraw_sol'));
 const TAG_WITHDRAW_TOKEN = toHex(ixTag('pq_withdraw_token'));
 const TAG_SET_OWNER = toHex(ixTag('pq_set_owner'));
 
-const withdrawTokenMessage = (vault: Address, nonce: number, nextKey: Uint8Array, mint: Address, destination: Address, amount: bigint) =>
+export const withdrawTokenMessage = (vault: Address, nonce: number, nextKey: Uint8Array, mint: Address, destination: Address, amount: bigint) =>
   concat(header(2, vault, nonce, nextKey), bytes(mint), bytes(destination), u64le(amount));
 
 /** An instruction as it appears in a landed transaction. */
