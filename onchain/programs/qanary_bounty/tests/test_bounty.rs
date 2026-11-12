@@ -181,3 +181,28 @@ fn valid_claim_pays_the_pool_and_trips() {
     assert_eq!(paid + rent_left, pool_before);
     assert!(paid >= 3 * SOL);
 }
+
+fn unhex(s: &str) -> Vec<u8> {
+    (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).unwrap()).collect()
+}
+
+/// The bytes the site (fetchCanary in app/src/lib/qanary.ts) and the watchdog (decodeCanary in
+/// app/scripts/watchdog-logic.mjs) decode. A new field may only be appended after byte 66.
+const CANARY_VECTOR: &str = "c0d1d6c5571c5273010807060504030201cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc18171615141312112827262524232221fe";
+
+#[test]
+fn canary_account_layout_matches_the_clients() {
+    use anchor_lang::{AccountSerialize, Space};
+    let canary = Canary {
+        tripped: true,
+        tripped_slot: 0x0102_0304_0506_0708,
+        claimer: Pubkey::new_from_array([0xcc; 32]),
+        honeypot_baseline: 0x1112_1314_1516_1718,
+        total_funded: 0x2122_2324_2526_2728,
+        bump: 0xfe,
+    };
+    let mut data = Vec::new();
+    canary.try_serialize(&mut data).unwrap();
+    assert_eq!(data.len(), 8 + Canary::INIT_SPACE);
+    assert_eq!(data, unhex(CANARY_VECTOR));
+}
