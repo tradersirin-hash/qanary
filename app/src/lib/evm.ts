@@ -8,6 +8,12 @@ const NETWORKS: { chain: Chain; rpc?: string }[] = [
   { chain: base },
 ];
 
+/** Where a network is read: its own RPC, or else every public RPC viem lists for it, tried in order. */
+const endpoints = ({ chain, rpc }: (typeof NETWORKS)[number]) => (rpc ? [rpc] : chain.rpcUrls.default.http);
+
+/** Every EVM RPC the Scan can call; vercel.json's Content-Security-Policy must allow each one (csp.test.ts). */
+export const EVM_RPC_URLS = NETWORKS.flatMap(endpoints);
+
 /** 'exposed': the key has signed a transaction, so its public key is on-chain.
  *  'notSeen': no outgoing transaction on this chain.
  *  'delegated': an EIP-7702 EOA; setting the delegation required a signature, so the key is public.
@@ -36,7 +42,7 @@ export async function scanEvm(addr: Address): Promise<EvmReport> {
       const info = { chainId: chain.id, name: chain.name, symbol: chain.nativeCurrency.symbol, explorer: chain.blockExplorers?.default.url };
       try {
         // Public RPCs sometimes drop CORS headers under load, so fall back across every listed endpoint.
-        const urls = rpc ? [rpc] : chain.rpcUrls.default.http;
+        const urls = endpoints({ chain, rpc });
         const transport = fallback(urls.map((url) => http(url, { timeout: 12_000, retryCount: 1 })));
         const client = createPublicClient({ chain, transport });
         const [nonce, balance, code] = await Promise.all([

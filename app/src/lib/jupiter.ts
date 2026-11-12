@@ -1,5 +1,5 @@
 // Jupiter's public APIs: wallet holdings, USD prices and token symbols. Every call fails soft.
-const JUP = 'https://lite-api.jup.ag';
+export const JUP = 'https://lite-api.jup.ag';
 const PRICE_BATCH = 50;
 /** The keyless API allows 5 requests per 10 seconds per IP, shared by every endpoint. Holdings, three price
  *  batches and the symbol lookup fit in one window, so very large wallets are priced partially. */
