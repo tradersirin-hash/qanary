@@ -271,17 +271,18 @@ export function VaultPanel({ w, canaryTripped }: { w: WalletState; canaryTripped
   /** Creates the vault; with `request` (always a setOwner), key #0 adds wallet access in the same transaction. */
   const submitCreate = async (k: VaultKeys, vaultAddr: Address, request: SignedRequest | null, go: (i: number) => void, approveIndex: number): Promise<Status> => {
     const ixs = [computeLimitIx(PQ_COMPUTE_UNITS), createVaultIx(payer!, vaultAddr, k)];
-    if (request) {
-      // Key 0 adds the wallet as owner in the same transaction; the program never accepts an unsigned owner.
-      const fresh: VaultState = { address: vaultAddr, id: k.id, genesisKey: k.genesisKey, key: k.genesisKey, nonce: 0, owner: null, lamports: 0n, spendable: 0n };
-      ixs.push(await pqInstruction(fresh, k, request));
-    }
     try {
+      if (request) {
+        // Key 0 adds the wallet as owner in the same transaction; the program never accepts an unsigned owner.
+        const fresh: VaultState = { address: vaultAddr, id: k.id, genesisKey: k.genesisKey, key: k.genesisKey, nonce: 0, owner: null, lamports: 0n, spendable: 0n };
+        ixs.push(await pqInstruction(fresh, k, request));
+      }
       const sig = await send(VAULT_CLUSTER, wallet!, account!, ixs, stepOf(approveIndex)(go));
       await openCreated(k);
       return { tone: 'success', text: tv('createdOk'), tx: sig };
     } catch (e) {
-      // Someone may have created this exact vault first; that is harmless if it is untouched.
+      // Someone may have created this exact vault first; that is harmless if it is untouched. This also covers
+      // key #0 refusing to sign because the vault already landed (a create whose confirmation timed out, say).
       const existing = await fetchVault(vaultAddr).catch(() => null);
       if (existing && sameBytes(existing.genesisKey, k.genesisKey)) {
         await openCreated(k);

@@ -22,9 +22,12 @@ import {
   setTransactionMessageLifetimeUsingBlockhash,
   type Address,
   type Instruction,
+  type Signature,
 } from '@solana/kit';
+import { t, tOn } from '../copy';
 import type { Cluster } from './cluster';
 import { BOUNTY_PROGRAM_ID, CANARY_CLUSTER, CANARY_KEY_ID, NETWORKS, VAULT_CLUSTER, VAULT_PROGRAM_ID } from './constants';
+import { UserFacingError } from './errors';
 import * as lmots from './lmots';
 import { signAndSend, type StandardWallet, type WalletAccount } from './wallet';
 
@@ -420,6 +423,17 @@ export class KeyUsedElsewhere extends Error {
   }
 }
 
+/** This browser signed one request with the current key, but another device put a different one on-chain. The
+ *  on-chain request becomes the only one the key may send; the one signed here is never sent. */
+export class KeySignedElsewhere extends UserFacingError {
+  constructor(
+    readonly nonce: number,
+    readonly onChain: SignedRequest,
+  ) {
+    super(t('keySignedElsewhere', { n: nonce }));
+  }
+}
+
 export class StorageUnavailable extends Error {
   constructor() {
     super('This browser blocks site storage, so post-quantum signing is disabled: a retry could otherwise reuse a one-time key.');
@@ -507,36 +521,101 @@ export function signedByCurrentKey(instructions: SeenInstruction[], vault: Vault
   return null;
 }
 
-/** How far back to look for a landed request by the current key. Successful ones rotate it, so only
- *  failed ones can still carry it; another device's failed attempt shows up here. */
-const HISTORY_DEPTH = 25;
+const PQ_TAGS: ReadonlySet<string> = new Set([TAG_WITHDRAW_SOL, TAG_WITHDRAW_TOKEN, TAG_SET_OWNER]);
 
+/** The keys post-quantum instructions on `vault` handed over to (their `next_key`, hex). Only asked of transactions
+ *  that succeeded, where the program has already verified each signature. */
+function handOvers(instructions: SeenInstruction[], vault: VaultState): string[] {
+  return instructions
+    .filter(
+      (ix) =>
+        ix.program === VAULT_PROGRAM && ix.accounts[0] === vault.address && ix.data.length >= 12 + lmots.N && PQ_TAGS.has(toHex(ix.data.slice(0, 8))),
+    )
+    .map((ix) => toHex(ix.data.slice(-lmots.N)));
+}
+
+/** The vault's history is read newest first, this many signatures per request. */
+const HISTORY_PAGE = 100;
+/** The most transactions read while looking back for the one that handed over to the current key. Normal use needs a
+ *  handful; past this (a vault flooded with dust, say) signing is refused rather than done on a partial check. */
+export const HISTORY_CAP = 1_000;
+
+/** The vault's history since the current key took over could not be read in full, so nothing was signed: a
+ *  request another device signed could be in the part not read. */
+export class HistoryIncomplete extends UserFacingError {
+  constructor(
+    readonly nonce: number,
+    readonly reason: 'unreadable' | 'tooLong',
+    options?: ErrorOptions,
+  ) {
+    super(
+      reason === 'tooLong' ? t('historyTooLong', { n: nonce, max: HISTORY_CAP }) : tOn(VAULT_CLUSTER, 'historyUnreadable', { n: nonce }),
+      options,
+    );
+  }
+}
+
+type JsonInstruction = { programIdIndex: number; accounts: number[]; data: string };
 type JsonTransaction = {
-  transaction: { message: { accountKeys: string[]; instructions: { programIdIndex: number; accounts: number[]; data: string }[] } };
-  meta: { loadedAddresses?: { writable: string[]; readonly: string[] } } | null;
+  transaction: { message: { accountKeys: string[]; instructions: JsonInstruction[] } };
+  meta: { loadedAddresses?: { writable: string[]; readonly: string[] }; innerInstructions?: { instructions: JsonInstruction[] }[] | null } | null;
 };
 
-/** A request the current key already signed in a transaction that landed (and failed), from any device. */
-async function signedOnChain(vault: VaultState): Promise<SeenSignature | null> {
-  const history = await rpc(VAULT_CLUSTER).getSignaturesForAddress(vault.address, { limit: HISTORY_DEPTH }).send();
+/** Every instruction of a landed transaction, those other programs ran through CPI included. */
+function instructionsOf(tx: JsonTransaction): SeenInstruction[] {
   const base58 = getBase58Encoder();
-  for (const entry of history) {
-    if (!entry.err) continue;
-    const tx = (await rpc(VAULT_CLUSTER)
-      .getTransaction(entry.signature, { encoding: 'json', maxSupportedTransactionVersion: 0 })
-      .send()) as unknown as JsonTransaction | null;
-    if (!tx) continue;
-    const loaded = tx.meta?.loadedAddresses;
-    const keys = [...tx.transaction.message.accountKeys, ...(loaded?.writable ?? []), ...(loaded?.readonly ?? [])];
-    const instructions = tx.transaction.message.instructions.map((ix) => ({
-      program: keys[ix.programIdIndex],
-      accounts: ix.accounts.map((i) => keys[i]),
-      data: new Uint8Array(base58.encode(ix.data)),
-    }));
-    const seen = signedByCurrentKey(instructions, vault);
-    if (seen) return seen;
+  const loaded = tx.meta?.loadedAddresses;
+  const keys = [...tx.transaction.message.accountKeys, ...(loaded?.writable ?? []), ...(loaded?.readonly ?? [])];
+  const inner = (tx.meta?.innerInstructions ?? []).flatMap((group) => group.instructions);
+  return [...tx.transaction.message.instructions, ...inner].map((ix) => ({
+    program: keys[ix.programIdIndex],
+    accounts: ix.accounts.map((i) => keys[i]),
+    data: new Uint8Array(base58.encode(ix.data)),
+  }));
+}
+
+/**
+ * A request the current key already signed in a transaction that landed (and failed), from any device. A request
+ * that succeeds moves the vault to the next key, so the current key can only appear in failed transactions after
+ * the one that handed over to it. The history is read back to that transaction, or for key #0 to the very first
+ * one (failed creates included). Throws `HistoryIncomplete` rather than answer from part of it: on an RPC error,
+ * past HISTORY_CAP transactions, or when the history ends or shows another hand-over before the current key's.
+ */
+async function signedOnChain(vault: VaultState): Promise<SeenSignature | null> {
+  try {
+    let before: Signature | undefined;
+    for (let read = 0; ; ) {
+      const page = await rpc(VAULT_CLUSTER).getSignaturesForAddress(vault.address, { limit: HISTORY_PAGE, before }).send();
+      if (page.length === 0) {
+        if (vault.nonce === 0) return null;
+        throw new HistoryIncomplete(vault.nonce, 'unreadable');
+      }
+      for (const entry of page) {
+        if (++read > HISTORY_CAP) throw new HistoryIncomplete(vault.nonce, 'tooLong');
+        const tx = (await rpc(VAULT_CLUSTER)
+          .getTransaction(entry.signature, { encoding: 'json', maxSupportedTransactionVersion: 0 })
+          .send()) as unknown as JsonTransaction | null;
+        if (!tx) {
+          // A failed transaction that cannot be read could carry the key; a successful one only marks where to stop.
+          if (entry.err) throw new HistoryIncomplete(vault.nonce, 'unreadable');
+          continue;
+        }
+        const instructions = instructionsOf(tx);
+        if (entry.err) {
+          const seen = signedByCurrentKey(instructions, vault);
+          if (seen) return seen;
+          continue;
+        }
+        const next = handOvers(instructions, vault);
+        if (next.includes(toHex(vault.key))) return null;
+        // Any other hand-over first: this read missed the current key's, or the vault moved on after it was read.
+        if (next.length > 0) throw new HistoryIncomplete(vault.nonce, 'unreadable');
+      }
+      before = page[page.length - 1].signature;
+    }
+  } catch (e) {
+    throw e instanceof HistoryIncomplete ? e : new HistoryIncomplete(vault.nonce, 'unreadable', { cause: e });
   }
-  return null;
 }
 
 function remember(slot: string, record: Pending) {
@@ -548,11 +627,14 @@ function remember(slot: string, record: Pending) {
  * Returns the signature for `request` by the vault's current one-time key, creating it at most once. An
  * LM-OTS key must never sign two different messages, so:
  * - a lock held across every tab of this site makes check-then-sign atomic;
- * - a request this browser already signed with the key is the only one it will sign again;
- * - a request another device signed and that landed (and failed) is found on-chain and verified, and
- *   becomes the only one this browser will sign too.
- * A different request then throws `KeyAlreadyUsed` (or `KeyUsedElsewhere`) until the first one lands and
- * the nonce moves on. Signatures are deterministic, so the same request yields the same bytes anywhere.
+ * - the vault's history since the key took over is read every time, stored record or not: a request
+ *   another device signed and that landed (and failed) is found and verified, and becomes the only one
+ *   this browser will sign or send, even if it had signed a different one itself;
+ * - otherwise, a request this browser already signed with the key is the only one it will sign again.
+ * A different request then throws `KeyAlreadyUsed` (`KeySignedElsewhere` when this browser's own request
+ * lost to another device's, `KeyUsedElsewhere` for a token withdrawal) until the first one lands and the
+ * nonce moves on. If the history cannot be read in full, nothing is signed (`HistoryIncomplete`).
+ * Signatures are deterministic, so the same request yields the same bytes anywhere.
  * The remaining risk is two devices signing different requests while neither has landed yet.
  */
 export async function oneTimeSignature(keys: VaultKeys, vault: VaultState, message: Uint8Array, request: SignedRequest): Promise<Uint8Array> {
@@ -562,19 +644,21 @@ export async function oneTimeSignature(keys: VaultKeys, vault: VaultState, messa
   return navigator.locks.request(slot, async () => {
     const stored = memoryPending.get(slot) ?? (JSON.parse(localStorage.getItem(slot) ?? 'null') as Pending | null);
     const messageHex = toHex(message);
-    if (stored) {
-      if (stored.message !== messageHex) throw new KeyAlreadyUsed(vault.nonce, stored.request);
-      return fromHex(stored.signature);
-    }
     const seen = await signedOnChain(vault);
     if (seen) {
-      if (toHex(seen.message) === messageHex) {
+      const seenHex = toHex(seen.message);
+      if (seenHex === messageHex) {
         remember(slot, { message: messageHex, signature: toHex(seen.signature), request });
         return seen.signature;
       }
       if (!seen.request) throw new KeyUsedElsewhere(vault.nonce);
-      remember(slot, { message: toHex(seen.message), signature: toHex(seen.signature), request: seen.request });
+      remember(slot, { message: seenHex, signature: toHex(seen.signature), request: seen.request });
+      if (stored && stored.message !== seenHex) throw new KeySignedElsewhere(vault.nonce, seen.request);
       throw new KeyAlreadyUsed(vault.nonce, seen.request);
+    }
+    if (stored) {
+      if (stored.message !== messageHex) throw new KeyAlreadyUsed(vault.nonce, stored.request);
+      return fromHex(stored.signature);
     }
     const signature = lmots.signDeterministic(keys.id, vault.nonce, keys.seed, message);
     remember(slot, { message: messageHex, signature: toHex(signature), request });
