@@ -317,6 +317,8 @@ const copy = {
     "Before signing, the app checks this browser (across tabs) and every vault transaction since the current one-time key took over for a request that key already signed. Two devices signing different requests at the same moment, before either lands, would still weaken it: use one device at a time.",
   keySignedElsewhere:
     'Another device already put a different request signed by one-time key #{n} on-chain. To keep the key safe, the request signed in this browser will never be sent: only the on-chain request can be sent with this key now.',
+  pendingUnreadable:
+    "This browser's record of what one-time key #{n} signed cannot be read, so Qanary signs nothing more with that key here: a different request could weaken it. If you sent a request with key #{n}, wait for it to land.",
   historyUnreadable:
     "Could not read the vault's full history on {cluster}, so one-time key #{n} signed nothing: it must first be checked for a request signed on another device. Try again in a moment.",
   historyTooLong:

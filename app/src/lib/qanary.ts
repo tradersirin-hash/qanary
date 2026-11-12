@@ -453,15 +453,43 @@ export class LocksUnavailable extends Error {
   }
 }
 
-/** The request a one-time key already signed but that has not landed yet, if any. Read-only. */
-export function pendingFor(vault: Address, nonce: number): SignedRequest | null {
-  const slot = `${PENDING_PREFIX}${vault}:${nonce}`;
-  try {
-    const stored = memoryPending.get(slot) ?? (JSON.parse(localStorage.getItem(slot) ?? 'null') as Pending | null);
-    return stored?.request ?? null;
-  } catch {
-    return memoryPending.get(slot)?.request ?? null;
+/** This browser's record of what one-time key #`nonce` signed could not be read, so that key signs nothing here: a
+ *  different request could weaken it. */
+export class PendingUnreadable extends UserFacingError {
+  constructor(readonly nonce: number) {
+    super(t('pendingUnreadable', { n: nonce }));
   }
+}
+
+/** A stored record: none, one this app wrote, or one it cannot read (storage error, damaged or unknown data). */
+type StoredRecord = Pending | 'unreadable' | null;
+
+const isRequest = (r: unknown): r is SignedRequest => {
+  if (typeof r !== 'object' || r === null) return false;
+  const v = r as Record<string, unknown>;
+  if (v.kind === 'withdrawSol') return typeof v.destination === 'string' && typeof v.amount === 'string';
+  return v.kind === 'setOwner' && (v.owner === null || typeof v.owner === 'string');
+};
+
+function readRecord(slot: string): StoredRecord {
+  const remembered = memoryPending.get(slot);
+  if (remembered) return remembered;
+  try {
+    const raw = localStorage.getItem(slot);
+    if (raw === null) return null;
+    const record: unknown = JSON.parse(raw);
+    if (typeof record !== 'object' || record === null) return 'unreadable';
+    const { message, signature, request } = record as Record<string, unknown>;
+    return typeof message === 'string' && typeof signature === 'string' && isRequest(request) ? { message, signature, request } : 'unreadable';
+  } catch {
+    return 'unreadable';
+  }
+}
+
+/** The request a one-time key already signed but that has not landed yet, if any. Read-only; never throws. */
+export function pendingFor(vault: Address, nonce: number): SignedRequest | null {
+  const stored = readRecord(`${PENDING_PREFIX}${vault}:${nonce}`);
+  return stored === 'unreadable' ? null : (stored?.request ?? null);
 }
 
 /** Throws unless localStorage can persist a record across reloads. */
@@ -640,7 +668,9 @@ function remember(slot: string, record: Pending) {
  * - otherwise, a request this browser already signed with the key is the only one it will sign again.
  * A different request then throws `KeyAlreadyUsed` (`KeySignedElsewhere` when this browser's own request
  * lost to another device's, `KeyUsedElsewhere` for a token withdrawal) until the first one lands and the
- * nonce moves on. If the history cannot be read in full, nothing is signed (`HistoryIncomplete`).
+ * nonce moves on. If the history cannot be read in full, nothing is signed (`HistoryIncomplete`). A stored record
+ * this browser cannot read gives way to a request found on-chain and is replaced by it; without one, nothing is
+ * signed (`PendingUnreadable`).
  * Signatures are deterministic, so the same request yields the same bytes anywhere.
  * The remaining risk is two devices signing different requests while neither has landed yet.
  */
@@ -649,7 +679,7 @@ export async function oneTimeSignature(keys: VaultKeys, vault: VaultState, messa
   if (!('locks' in navigator) || !navigator.locks) throw new LocksUnavailable();
   const slot = `${PENDING_PREFIX}${vault.address}:${vault.nonce}`;
   return navigator.locks.request(slot, async () => {
-    const stored = memoryPending.get(slot) ?? (JSON.parse(localStorage.getItem(slot) ?? 'null') as Pending | null);
+    const stored = readRecord(slot);
     const messageHex = toHex(message);
     const seen = await signedOnChain(vault);
     if (seen) {
@@ -660,11 +690,17 @@ export async function oneTimeSignature(keys: VaultKeys, vault: VaultState, messa
       }
       if (!seen.request) throw new KeyUsedElsewhere(vault.nonce);
       remember(slot, { message: seenHex, signature: toHex(seen.signature), request: seen.request });
+      if (stored === 'unreadable') throw new KeyAlreadyUsed(vault.nonce, seen.request);
       if (stored && stored.message !== seenHex) throw new KeySignedElsewhere(vault.nonce, seen.request);
       throw new KeyAlreadyUsed(vault.nonce, seen.request);
     }
+    // What this browser signed with the key is unknown, so nothing more is signed with it here.
+    if (stored === 'unreadable') throw new PendingUnreadable(vault.nonce);
     if (stored) {
       if (stored.message !== messageHex) throw new KeyAlreadyUsed(vault.nonce, stored.request);
+      // Written again before the signature goes out: a record kept only in this page's memory would be gone after a
+      // reload, and a different request could then be signed.
+      remember(slot, stored);
       return fromHex(stored.signature);
     }
     const signature = lmots.signDeterministic(keys.id, vault.nonce, keys.seed, message);

@@ -9,12 +9,15 @@ import {
   HistoryIncomplete,
   KeyAlreadyUsed,
   KeySignedElsewhere,
+  LocksUnavailable,
   oneTimeSignature,
   pendingFor,
+  PendingUnreadable,
   pqSetOwnerIx,
   pqWithdrawSolIx,
   setOwnerMessage,
   signedByCurrentKey,
+  StorageUnavailable,
   transferIx,
   VAULT_PROGRAM,
   withdrawSolMessage,
@@ -23,8 +26,9 @@ import {
   type VaultState,
 } from './qanary';
 
-/** The vault's history as the RPC serves it, newest first. A `tx` of 'error' makes reading that transaction fail. */
-const chain = vi.hoisted(() => ({ history: [] as { signature: string; err: unknown; tx: unknown }[], reads: 0, down: false }));
+/** The vault's history as the RPC serves it, newest first. A `tx` of 'error' makes reading that transaction fail, and
+ *  every history page after the first `failAfterPages` fails. */
+const chain = vi.hoisted(() => ({ history: [] as { signature: string; err: unknown; tx: unknown }[], reads: 0, down: false, failAfterPages: Infinity }));
 
 vi.mock('@solana/kit', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@solana/kit')>()),
@@ -32,7 +36,7 @@ vi.mock('@solana/kit', async (importOriginal) => ({
     getSignaturesForAddress: (_address: string, { before, limit }: { before?: string; limit: number }) => ({
       send: async () => {
         chain.reads++;
-        if (chain.down) throw new Error('fetch failed');
+        if (chain.down || chain.reads > chain.failAfterPages) throw new Error('fetch failed');
         const start = before ? chain.history.findIndex((e) => e.signature === before) + 1 : 0;
         return chain.history.slice(start, start + limit).map(({ signature, err }) => ({ signature, err }));
       },
@@ -165,19 +169,23 @@ const refusal = (q: number, amount = 5_000n) =>
     (e: unknown) => e,
   );
 
-describe('oneTimeSignature', () => {
-  beforeEach(() => {
-    const store = new Map<string, string>();
-    vi.stubGlobal('localStorage', {
-      getItem: (k: string) => store.get(k) ?? null,
-      setItem: (k: string, v: string) => void store.set(k, v),
-      removeItem: (k: string) => void store.delete(k),
-    });
-    vi.stubGlobal('navigator', { locks: { request: (_name: string, task: () => Promise<unknown>) => task() } });
-    chain.history = [];
-    chain.reads = 0;
-    chain.down = false;
+/** Empty working storage, a Web Lock that runs each task at once, and an empty history that reads without errors. */
+function freshBrowser() {
+  const store = new Map<string, string>();
+  vi.stubGlobal('localStorage', {
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => void store.set(k, v),
+    removeItem: (k: string) => void store.delete(k),
   });
+  vi.stubGlobal('navigator', { locks: { request: (_name: string, task: () => Promise<unknown>) => task() } });
+  chain.history = [];
+  chain.reads = 0;
+  chain.down = false;
+  chain.failAfterPages = Infinity;
+}
+
+describe('oneTimeSignature', () => {
+  beforeEach(freshBrowser);
   afterEach(() => vi.unstubAllGlobals());
 
   it('reads the chain despite a stored record, and never sends that record once another device put a different request there', async () => {
@@ -268,6 +276,204 @@ describe('oneTimeSignature', () => {
     expect(await sign(q)).toHaveLength(lmots.SIG_LEN);
   });
 });
+
+/** Where this browser keeps its record of what key q signed. */
+const slot = (q: number) => `qanary:signed:${VAULT}:${q}`;
+/** A page reload: a fresh copy of the module with nothing in its memory. Storage and the chain stay as they are. */
+async function reload() {
+  vi.resetModules();
+  return import('./qanary');
+}
+/** The error a signature request is refused with; fails the test if it was signed. */
+const rejection = (request: Promise<unknown>) =>
+  request.then(
+    () => expect.fail('signed'),
+    (e: unknown) => e,
+  );
+/** Key q's signature on a withdrawal of `amount`: the same bytes on every device. */
+const signature = (q: number, amount: bigint) => lmots.signDeterministic(keys.id, q, keys.seed, withdrawalMessage(q, amount));
+
+describe('oneTimeSignature under failures', () => {
+  beforeEach(freshBrowser);
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('after a reload, only the request signed before it can be sent', async () => {
+    const q = 20;
+    chain.history = [handOver(q)];
+    const first = await sign(q, 5_000n);
+
+    const page = await reload();
+    const e = await rejection(page.oneTimeSignature(keys, vaultAt(q), withdrawalMessage(q, 9_000n), withdrawal(9_000n)));
+    expect(e).toBeInstanceOf(page.KeyAlreadyUsed);
+    expect((e as KeyAlreadyUsed).pending).toEqual(withdrawal(5_000n));
+    expect(await page.oneTimeSignature(keys, vaultAt(q), withdrawalMessage(q, 5_000n), withdrawal(5_000n))).toEqual(first);
+  });
+
+  it('returns no signature while its record cannot be written', async () => {
+    const q = 21;
+    chain.history = [handOver(q)];
+    const store = new Map<string, string>();
+    let full = true;
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store.get(k) ?? null,
+      // Only the record fails, so the storage probe still passes.
+      setItem: (k: string, v: string) => {
+        if (full && k === slot(q)) throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+        store.set(k, v);
+      },
+      removeItem: (k: string) => void store.delete(k),
+    });
+
+    await expect(sign(q)).rejects.toThrow('quota');
+    await expect(sign(q), 'the same request again').rejects.toThrow('quota');
+    // This page still remembers what the key signed, so it signs nothing else with it.
+    const e = await refusal(q, 9_000n);
+    expect(e).toBeInstanceOf(KeyAlreadyUsed);
+    expect((e as KeyAlreadyUsed).pending).toEqual(withdrawal(5_000n));
+
+    // Signing a new request after a reload is safe: no signature by the key ever left the page that made it.
+    full = false;
+    const page = await reload();
+    expect(await page.oneTimeSignature(keys, vaultAt(q), withdrawalMessage(q, 9_000n), withdrawal(9_000n))).toEqual(signature(q, 9_000n));
+  });
+
+  it('signs nothing when its stored record is damaged', async () => {
+    const q = 22;
+    chain.history = [handOver(q)];
+    const damaged = [
+      'not json',
+      '{}',
+      'null',
+      JSON.stringify({ message: '00', signature: '00', request: { kind: 'withdrawToken', amount: '1' } }),
+      JSON.stringify({ message: '00', signature: '00', request: { kind: 'withdrawSol', destination: DEST } }),
+    ];
+    for (const record of damaged) {
+      localStorage.setItem(slot(q), record);
+      expect(await refusal(q), record).toBeInstanceOf(PendingUnreadable);
+      expect(pendingFor(VAULT, q), record).toBeNull();
+      expect(localStorage.getItem(slot(q)), record).toBe(record);
+    }
+  });
+
+  it('lets a request found on-chain replace a damaged record', async () => {
+    const q = 27;
+    chain.history = [signedElsewhere(q, 7_000n), handOver(q)];
+    // Each request comes from a reloaded page whose record is damaged, so none is answered from memory.
+    const damagedPage = () => {
+      localStorage.setItem(slot(q), 'not json');
+      return reload();
+    };
+
+    let page = await damagedPage();
+    expect(await page.oneTimeSignature(keys, vaultAt(q), withdrawalMessage(q, 7_000n), withdrawal(7_000n))).toEqual(signature(q, 7_000n));
+
+    page = await damagedPage();
+    const e = await rejection(page.oneTimeSignature(keys, vaultAt(q), withdrawalMessage(q, 9_000n), withdrawal(9_000n)));
+    expect(e).toBeInstanceOf(page.KeyAlreadyUsed);
+    expect((e as KeyAlreadyUsed).pending).toEqual(withdrawal(7_000n));
+    // Replaced in storage, not only in that page's memory.
+    expect(pendingFor(VAULT, q)).toEqual(withdrawal(7_000n));
+  });
+
+  it('signs nothing when a later page of the history fails', async () => {
+    const q = 23;
+    chain.history = [...deposits(150), handOver(q)];
+    chain.failAfterPages = 1;
+    const e = await refusal(q);
+    expect(e).toBeInstanceOf(HistoryIncomplete);
+    expect((e as HistoryIncomplete).reason).toBe('unreadable');
+    expect(chain.reads).toBe(2);
+    expect(pendingFor(VAULT, q)).toBeNull();
+  });
+
+  it('signs one of two requests made at once from two tabs, and refuses the other', async () => {
+    const q = 24;
+    chain.history = [handOver(q)];
+    // Web Locks: a task starts once the one before it under the same name has finished.
+    const queues = new Map<string, Promise<unknown>>();
+    vi.stubGlobal('navigator', {
+      locks: {
+        request: (name: string, task: () => Promise<unknown>) => {
+          const run = (queues.get(name) ?? Promise.resolve()).then(task);
+          queues.set(name, run.catch(() => undefined));
+          return run;
+        },
+      },
+    });
+
+    const results = await Promise.allSettled([sign(q, 5_000n), sign(q, 9_000n)]);
+    const signed = results.filter((r): r is PromiseFulfilledResult<Uint8Array> => r.status === 'fulfilled');
+    const refused = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+    expect(signed.map((r) => r.value)).toEqual([signature(q, 5_000n)]);
+    expect(refused).toHaveLength(1);
+    expect(refused[0].reason).toBeInstanceOf(KeyAlreadyUsed);
+    expect((refused[0].reason as KeyAlreadyUsed).pending).toEqual(withdrawal(5_000n));
+  });
+
+  it('signs nothing without Web Locks or storage, and does not read the chain', async () => {
+    chain.history = [handOver(25)];
+    vi.stubGlobal('navigator', {});
+    expect(await refusal(25)).toBeInstanceOf(LocksUnavailable);
+    expect(chain.reads).toBe(0);
+
+    freshBrowser();
+    chain.history = [handOver(26)];
+    // As blocked site storage does: every write throws, the probe's included.
+    vi.stubGlobal('localStorage', {
+      getItem: () => null,
+      setItem: () => {
+        throw new DOMException('The operation is insecure.', 'SecurityError');
+      },
+      removeItem: () => undefined,
+    });
+    expect(await refusal(26)).toBeInstanceOf(StorageUnavailable);
+    expect(chain.reads).toBe(0);
+  });
+
+  it('never throws on arbitrary instruction data in the vault history, and never takes it for a signature', () => {
+    const SEED = 0x9e3779b9;
+    const random = xorshift32(SEED);
+    const below = (n: number) => random() % n;
+    const randomBytes = (n: number) => Uint8Array.from({ length: n }, () => random() & 0xff);
+    const pqTags = ['pq_withdraw_sol', 'pq_withdraw_token', 'pq_set_owner'].map((name) => sha256(new TextEncoder().encode(`global:${name}`)).slice(0, 8));
+    const vault = vaultAt(Q);
+    for (let i = 0; i < 300; i++) {
+      const at = `seed 0x${SEED.toString(16)}, input ${i}`;
+      const kind = below(4); // a post-quantum instruction's tag, or 8 random bytes
+      const tag = kind < 3 ? pqTags[kind] : randomBytes(8);
+      // Half the inputs are steered past the length checks, so the decoder rebuilds a message and runs the LM-OTS
+      // check on a random signature of the LM-OTS type.
+      const steered = below(2) === 1;
+      const length = new Uint8Array(4);
+      new DataView(length.buffer).setUint32(0, steered || below(2) ? lmots.SIG_LEN : random(), true);
+      const args = (kind === 2 ? 1 + 32 * below(2) : 8) + lmots.N; // set_owner: Option<Pubkey>; the rest: u64
+      const rest = randomBytes(steered ? lmots.SIG_LEN + args : below(1_601));
+      if (steered) {
+        new DataView(rest.buffer).setUint32(0, lmots.LMOTS_TYPE);
+        rest[lmots.SIG_LEN] = below(2); // set_owner's Option tag (the amount's low byte otherwise)
+      }
+      const ix: SeenInstruction = {
+        program: VAULT_PROGRAM,
+        accounts: [VAULT, DEST, ...Array.from({ length: below(4) }, () => (below(2) ? OWNER : DEST))],
+        data: new Uint8Array([...tag, ...length, ...rest]),
+      };
+      let found: unknown;
+      expect(() => (found = signedByCurrentKey([ix], vault)), at).not.toThrow();
+      expect(found, at).toBeNull();
+    }
+  });
+});
+
+/** xorshift32: the same seed gives the same numbers (unsigned 32-bit) on every run. */
+function xorshift32(seed: number) {
+  let x = seed | 0;
+  return () => {
+    x ^= x << 13;
+    x ^= x >>> 17;
+    x ^= x << 5;
+    return x >>> 0;
+  };
+}
 
 /** Base58 decode for test addresses. */
 function bs58(s: string): Uint8Array {
