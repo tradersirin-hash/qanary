@@ -2,6 +2,8 @@ import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { clusterConfig, parseCluster, type Cluster, type RpcEnv } from './src/lib/cluster.ts';
+import { allowsConnect, connectSources } from './src/lib/csp.ts';
+import vercel from './vercel.json' with { type: 'json' };
 
 /** The index.html descriptions, naming where the Vault and the Bounty (the canary) run. */
 function descriptions(canary: Cluster, vault: Cluster): Record<string, string> {
@@ -45,6 +47,27 @@ function clusters(env: Record<string, string>): Plugin {
   };
 }
 
-export default defineConfig(({ mode }) => ({
-  plugins: [react(), tailwindcss(), clusters(loadEnv(mode, '.', 'VITE_'))],
-}));
+/** Fails a build whose Solana RPCs the Content-Security-Policy in vercel.json would block, such as a VITE_SOLANA_RPC
+ *  or VITE_DEVNET_RPC on a host its connect-src does not list: the site would load but could not read the chain. */
+function rpcPolicy(env: RpcEnv): Plugin {
+  const sources = connectSources(vercel);
+  const blocked = (['devnet', 'mainnet'] as const)
+    .map((cluster) => ({ name: cluster === 'devnet' ? 'VITE_DEVNET_RPC' : 'VITE_SOLANA_RPC', rpc: clusterConfig(cluster, env).rpc }))
+    .filter(({ rpc }) => !allowsConnect(sources, rpc))
+    // The origin only: a keyed RPC URL carries its API key.
+    .map(({ name, rpc }) => `${origin(rpc) ?? 'a URL that does not parse'} (${name})`);
+  return {
+    name: 'qanary-rpc-policy',
+    apply: 'build',
+    buildStart() {
+      if (blocked.length) {
+        throw new Error(`The Content-Security-Policy in vercel.json would block ${blocked.join(' and ')}. Add the host to its connect-src or use a listed RPC.`);
+      }
+    },
+  };
+}
+
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, '.', 'VITE_');
+  return { plugins: [react(), tailwindcss(), clusters(env), rpcPolicy(env)] };
+});

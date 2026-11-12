@@ -33,8 +33,8 @@ jobs:
         env:
           VITE_CANARY_CLUSTER: mainnet
 
-  # The LM-OTS verifier and signer tests, including the RFC 9858 vectors, run natively. The program
-  # tests (LiteSVM) need the SBF build (bash onchain/scripts/wsl-build.sh) and run locally for now.
+  # The LM-OTS verifier and signer tests, including the RFC 9858 vectors, run natively and finish first. The
+  # programs job below runs them again with every other Rust test.
   verifier:
     runs-on: ubuntu-24.04
     defaults:
@@ -45,3 +45,76 @@ jobs:
         with:
           persist-credentials: false
       - run: cargo test -p qanary_vault --lib --test test_rfc9858 --locked
+      # The site shows the canary key that scripts/canary_key.py derives (test_canary_key checks the program's copy).
+      - name: canary_key.py derives CANARY_KEY_ID
+        run: |
+          expected=$(sed -nE "s/^export const CANARY_KEY_ID = '([^']+)';.*/\1/p" ../app/src/lib/constants.ts)
+          python3 scripts/canary_key.py | tee "$RUNNER_TEMP/canary.txt"
+          grep -qx "canary  = $expected" "$RUNNER_TEMP/canary.txt"
+
+  # Both programs built for SBF the way anchor build builds them, then every Rust test, the LiteSVM program tests
+  # included, against those .so files. Same toolchain as scripts/wsl-build.sh: Rust from rust-toolchain.toml and
+  # Agave from Anchor.toml [toolchain]; Anchor itself is not needed, as no test reads the IDL. Dependencies come only
+  # from Cargo.lock.
+  programs:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        shell: bash
+        working-directory: onchain
+    env:
+      # What anchor-cli 1.2.1 passes to cargo build-sbf: --tools-version v1.57 --arch v3.
+      PLATFORM_TOOLS: v1.57
+      SBF_ARCH: v3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The Agave version Anchor.toml pins, so bumping it there cannot leave CI on the old one.
+      - name: Agave version from Anchor.toml
+        run: |
+          version=$(sed -nE 's/^solana_version = "([^"]+)"$/\1/p' Anchor.toml)
+          [ -n "$version" ]
+          echo "AGAVE_VERSION=$version" >> "$GITHUB_ENV"
+      # The Agave release, and the platform-tools that cargo build-sbf downloads on its first build.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: agave
+        with:
+          path: |
+            ~/.local/share/solana/install
+            ~/.cache/solana
+          key: agave-${{ runner.os }}-${{ env.AGAVE_VERSION }}-${{ env.PLATFORM_TOOLS }}
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-${{ runner.os }}-${{ hashFiles('onchain/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+      # Installs the toolchain rust-toolchain.toml pins.
+      - run: rustup toolchain install --no-self-update && rustc --version
+      - name: Install Agave
+        if: steps.agave.outputs.cache-hit != 'true'
+        run: sh -c "$(curl -sSfL "https://release.anza.xyz/v$AGAVE_VERSION/install")"
+      - run: echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+      # A Cargo.lock that does not match Cargo.toml fails here instead of being re-resolved.
+      - run: cargo fetch --locked
+      # Like anchor build, one cargo build-sbf per program from its own folder: a single build at the workspace root
+      # unifies features, so the bounty would get the vault's `cpi` feature and lose its entrypoint. The tests load
+      # target/deploy/*.so; the hashes let anyone compare a local build.
+      - run: |
+          cargo build-sbf --version
+          for program in programs/*/; do
+            (cd "$program" && cargo build-sbf --tools-version "$PLATFORM_TOOLS" --arch "$SBF_ARCH" -- --locked)
+          done
+          sha256sum target/deploy/*.so
+      # The site states how many Rust tests pass (RUST_TEST_COUNT, 0 hides it), so that number must match too.
+      - name: cargo test
+        run: |
+          cargo test --locked 2>&1 | tee "$RUNNER_TEMP/cargo-test.log"
+          passed=$(awk '/^test result: ok\./ { n += $4 } END { print n + 0 }' "$RUNNER_TEMP/cargo-test.log")
+          expected=$(sed -nE 's/^export const RUST_TEST_COUNT = ([0-9]+);.*/\1/p' ../app/src/lib/constants.ts)
+          echo "$passed Rust tests passed; RUST_TEST_COUNT is $expected"
+          [ "$expected" = 0 ] || [ "$passed" = "$expected" ]
+      - run: git diff --exit-code -- Cargo.lock
