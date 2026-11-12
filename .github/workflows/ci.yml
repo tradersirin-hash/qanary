@@ -63,7 +63,6 @@ jobs:
         shell: bash
         working-directory: onchain
     env:
-      AGAVE_VERSION: 4.3.0
       # What anchor-cli 1.2.1 passes to cargo build-sbf: --tools-version v1.57 --arch v3.
       PLATFORM_TOOLS: v1.57
       SBF_ARCH: v3
@@ -71,6 +70,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The Agave version Anchor.toml pins, so bumping it there cannot leave CI on the old one.
+      - name: Agave version from Anchor.toml
+        run: |
+          version=$(sed -nE 's/^solana_version = "([^"]+)"$/\1/p' Anchor.toml)
+          [ -n "$version" ]
+          echo "AGAVE_VERSION=$version" >> "$GITHUB_ENV"
       # The Agave release, and the platform-tools that cargo build-sbf downloads on its first build.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: agave
