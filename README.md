@@ -44,7 +44,9 @@ cd app && npm install && npm run dev
 cd onchain && bash scripts/wsl-build.sh
 ```
 
-`app/.npmrc` disables install scripts; dependencies are pinned exactly. The web app has one page per part (`/`, `/how`, `/vault`, `/bounty`, `/qday`, `/roadmap`); `app/vercel.json` serves `index.html` for those paths and sets the security headers. Its Content-Security-Policy allows scripts only from the site itself and network requests only to the listed RPC and price hosts, so injected code could not send a recovery phrase anywhere else; a new RPC host (for example through `VITE_SOLANA_RPC` or `VITE_DEVNET_RPC`) must be added to `connect-src` there. `npm test` runs the app's unit tests.
+`app/.npmrc` disables install scripts; dependencies are pinned exactly. The web app has one page per part (`/`, `/how`, `/vault`, `/bounty`, `/qday`, `/roadmap`); `app/vercel.json` serves `index.html` for those paths and sets the security headers. Its Content-Security-Policy allows scripts only from the site itself and network requests only to the listed RPC and price hosts, so injected code could not send a recovery phrase anywhere else; a new RPC host (for example through `VITE_SOLANA_RPC` or `VITE_DEVNET_RPC`) must be added to `connect-src` there, and the build fails until it is. `npm test` runs the app's unit tests.
+
+`wsl-build.sh` builds only from the committed `Cargo.lock` and fails if the lock is stale or the build changes it; `onchain/Anchor.toml` pins Anchor 1.2.1 and Agave 4.3.0. CI (`.github/workflows/ci.yml`) builds both programs for SBF the same way and runs every Rust test against them, the LiteSVM suites included, and fails if the test count shown on the site is out of date.
 
 Two build settings choose where the devnet panels point: `VITE_CANARY_CLUSTER` (the Bounty, read on the home, Vault and Bounty pages) and `VITE_VAULT_CLUSTER` (the Vault, whose one-time keys are derived per cluster). Both default to `devnet`, and any value other than `devnet` or `mainnet` fails the build. Site copy, explorer links, the wallet's network, the RPC and the devnet faucet button follow them; a vault always reads the canary on its own cluster.
 
