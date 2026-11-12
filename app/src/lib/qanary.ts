@@ -181,10 +181,13 @@ export type CanaryState = {
  *  straddle a fund_honeypot and show a drop that never happened. */
 export async function fetchCanary(cluster: Cluster = CANARY_CLUSTER): Promise<CanaryState | null> {
   const a = await canaryAddress();
-  const [{ value: [account, honeypot] }, rent] = await Promise.all([
+  const [{ value }, rent] = await Promise.all([
     rpc(cluster).getMultipleAccounts([a, CANARY_KEY], { encoding: 'base64' }).send(),
     rpc(cluster).getMinimumBalanceForRentExemption(BigInt(CANARY_SPACE)).send(),
   ]);
+  // A reply missing an entry is malformed: reading the absent honeypot as 0 would show a drain that never happened.
+  if (value.length !== 2) throw new Error('The RPC returned an incomplete canary read.');
+  const [account, honeypot] = value;
   if (!account || account.owner !== BOUNTY_PROGRAM) return null;
   const d = b64(account.data[0]);
   if (d.length < 66) return null;
