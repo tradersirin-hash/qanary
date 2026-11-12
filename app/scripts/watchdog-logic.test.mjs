@@ -110,8 +110,14 @@ describe('watchStatus', () => {
 
 describe('failsRun', () => {
   it('fails a run whose send failed only while no alert is due', () => {
-    expect(failsRun({ status: 'alive', error: 'no WATCHDOG_KEYPAIR' })).toBe(true);
-    expect(failsRun({ status: 'alive', error: '' })).toBe(false);
-    for (const status of ['drained', 'signed', 'tripped']) expect(failsRun({ status, error: 'airdrop failed' }), status).toBe(false);
+    expect(failsRun({ status: 'alive', error: 'no WATCHDOG_KEYPAIR', historyError: '' })).toBe(true);
+    expect(failsRun({ status: 'alive', error: '', historyError: '' })).toBe(false);
+    for (const status of ['drained', 'signed', 'tripped']) expect(failsRun({ status, error: 'airdrop failed', historyError: '' }), status).toBe(false);
+  });
+
+  it('never lets an unreadable history pass for alive', () => {
+    expect(failsRun({ status: 'alive', error: '', historyError: 'HTTP error (429)' })).toBe(true);
+    // A drop the watchdog could not trip still opens its issue, which says the history was not read.
+    expect(failsRun({ status: 'drained', error: 'airdrop failed', historyError: 'HTTP error (429)' })).toBe(false);
   });
 });

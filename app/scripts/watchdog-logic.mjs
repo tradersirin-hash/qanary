@@ -64,6 +64,7 @@ export function watchStatus({ tripped, check, signed }) {
   return 'alive';
 }
 
-/** A send that failed fails the run only while nothing is wrong (a forced check, or raising the baseline), so the
- *  owner hears about a broken fee payer. When an alert is due the run never fails, so the alert step still runs. */
-export const failsRun = ({ status, error }) => !!error && status === 'alive';
+/** A failed send (a forced check, or raising the baseline) or an unreadable history fails the run only while nothing
+ *  is wrong, so the owner hears about a broken fee payer or RPC instead of a run that passes for alive. When an alert
+ *  is due the run never fails, so the alert step still runs. */
+export const failsRun = ({ status, error, historyError }) => status === 'alive' && (!!error || !!historyError);

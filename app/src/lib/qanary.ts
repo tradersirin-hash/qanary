@@ -173,16 +173,18 @@ export type CanaryState = {
   pool: bigint;
 };
 
-/** The canary on `cluster`: the bounty's own, or the one a vault program checks on its cluster. */
+/** The canary on `cluster`: the bounty's own, or the one a vault program checks on its cluster. The canary account
+ *  and the honeypot are read in one call, so the baseline and the balance come from the same slot: two calls could
+ *  straddle a fund_honeypot and show a drop that never happened. */
 export async function fetchCanary(cluster: Cluster = CANARY_CLUSTER): Promise<CanaryState | null> {
   const a = await canaryAddress();
-  const [account, honeypot, rent] = await Promise.all([
-    readAccount(cluster, a),
-    rpc(cluster).getBalance(CANARY_KEY).send(),
+  const [{ value: [account, honeypot] }, rent] = await Promise.all([
+    rpc(cluster).getMultipleAccounts([a, CANARY_KEY], { encoding: 'base64' }).send(),
     rpc(cluster).getMinimumBalanceForRentExemption(BigInt(CANARY_SPACE)).send(),
   ]);
-  if (!account || account.owner !== BOUNTY_PROGRAM || account.data.length < 66) return null;
-  const d = account.data;
+  if (!account || account.owner !== BOUNTY_PROGRAM) return null;
+  const d = b64(account.data[0]);
+  if (d.length < 66) return null;
   const view = new DataView(d.buffer, d.byteOffset);
   const claimer = addrDec.decode(d.slice(17, 49));
   return {
@@ -191,7 +193,8 @@ export async function fetchCanary(cluster: Cluster = CANARY_CLUSTER): Promise<Ca
     trippedSlot: view.getBigUint64(9, true),
     claimer: claimer === SYSTEM_PROGRAM ? null : claimer,
     honeypotBaseline: view.getBigUint64(49, true),
-    honeypotLamports: honeypot.value as bigint,
+    // No account at the canary key holds no lamports.
+    honeypotLamports: honeypot ? (honeypot.lamports as bigint) : 0n,
     totalFunded: view.getBigUint64(57, true),
     pool: account.lamports > rent ? account.lamports - rent : 0n,
   };

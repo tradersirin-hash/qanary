@@ -21,8 +21,8 @@
 // is needed. Mainnet has no airdrop, so without a key the watchdog still reads and reports, and only a send fails.
 // Writes cluster=… and status=alive|drained|signed|tripped|missing (and details) to $GITHUB_OUTPUT for the
 // workflow's alert step. A send that fails while nothing is wrong (a forced check, or raising the baseline, say
-// with a malformed WATCHDOG_KEYPAIR) fails the run; a real drop or a signature never does, so the alert step
-// still opens the issue.
+// with a malformed WATCHDOG_KEYPAIR) fails the run, and so does a history that could not be read, so neither
+// passes for alive; a real drop or a signature never does, so the alert step still opens the issue.
 import { appendFileSync } from 'node:fs';
 import { sha256 } from '@noble/hashes/sha2';
 import {
@@ -67,16 +67,17 @@ function report(fields) {
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `${lines.join('\n')}\n`);
 }
 
-/** Canary account: disc 8 | tripped 1 | tripped_slot 8 | claimer 32 | honeypot_baseline 8 | total_funded 8 | bump 1. */
+/** Canary account: disc 8 | tripped 1 | tripped_slot 8 | claimer 32 | honeypot_baseline 8 | total_funded 8 | bump 1.
+ *  Read in one call with the honeypot, so the baseline and the balance come from the same slot: two calls could
+ *  straddle a fund_honeypot and report a drop that never happened. */
 async function readCanary(canary) {
-  const [{ value: account }, { value: balance }] = await Promise.all([
-    rpc.getAccountInfo(canary, { encoding: 'base64', commitment: 'confirmed' }).send(),
-    rpc.getBalance(CANARY_KEY, { commitment: 'confirmed' }).send(),
-  ]);
+  const {
+    value: [account, honeypot],
+  } = await rpc.getMultipleAccounts([canary, CANARY_KEY], { encoding: 'base64', commitment: 'confirmed' }).send();
   if (!account || account.owner !== BOUNTY_PROGRAM) return null;
   const d = Buffer.from(account.data[0], 'base64');
   if (d.length < 66) return null;
-  return { tripped: d[8] === 1, baseline: d.readBigUInt64LE(49), balance };
+  return { tripped: d[8] === 1, baseline: d.readBigUInt64LE(49), balance: honeypot?.lamports ?? 0n };
 }
 
 async function confirm(signature) {
@@ -137,16 +138,21 @@ async function checkHoneypot(canary) {
   return { signature, payer: signer.address };
 }
 
+/** Sends an RPC request, and once more after a pause if it fails: the public RPCs answer a burst with 429. */
+const retryOnce = (send) => send().catch(() => sleep(2000).then(send));
+
 /** The first transaction the canary key signed, if any, among the newest HISTORY_LIMIT that mention it. Reads are
  *  paced to stay under the public RPCs' per-method limit (about 4 calls a second). */
 async function signedHistory() {
   return findSignature({
     key: CANARY_KEY,
     limit: HISTORY_LIMIT,
-    page: (before, limit) => rpc.getSignaturesForAddress(CANARY_KEY, { before, limit, commitment: 'confirmed' }).send(),
+    page: (before, limit) => retryOnce(() => rpc.getSignaturesForAddress(CANARY_KEY, { before, limit, commitment: 'confirmed' }).send()),
     read: async (signature) => {
       await sleep(300);
-      return rpc.getTransaction(signature, { encoding: 'json', maxSupportedTransactionVersion: 1, commitment: 'confirmed' }).send();
+      return retryOnce(() =>
+        rpc.getTransaction(signature, { encoding: 'json', maxSupportedTransactionVersion: 1, commitment: 'confirmed' }).send(),
+      );
     },
   });
 }
@@ -160,22 +166,13 @@ if (!state) {
 } else if (state.tripped) {
   report({ cluster, status: 'tripped', canary, balance: state.balance, baseline: state.baseline });
 } else {
-  let signedTx = '';
-  let history;
-  try {
-    const found = await signedHistory();
-    signedTx = found.signed ?? '';
-    history = historyNote(found);
-  } catch (e) {
-    // The balance check below still runs: an unreadable history is reported, not fatal.
-    history = `not read: ${e instanceof Error ? e.message : String(e)}`;
-  }
   // FORCE_CHECK=1 exercises the transaction path while nothing changed: it only refreshes the baseline.
   const check = honeypotCheck(state, process.env.FORCE_CHECK === '1');
   let after = state;
   let tx = '';
   let payer = '';
   let error = '';
+  // The check goes first: reading the history takes a while, and a drop should trip the canary without waiting for it.
   if (check) {
     try {
       ({ signature: tx, payer } = await checkHoneypot(canary));
@@ -183,6 +180,17 @@ if (!state) {
       error = e instanceof Error ? e.message : String(e);
     }
     after = await readCanary(canary);
+  }
+  let signedTx = '';
+  let history;
+  let historyError = '';
+  try {
+    const found = await signedHistory();
+    signedTx = found.signed ?? '';
+    history = historyNote(found);
+  } catch (e) {
+    historyError = e instanceof Error ? e.message : String(e);
+    history = `not read: ${historyError}`;
   }
   const status = watchStatus({ tripped: !!after?.tripped, check, signed: !!signedTx });
   report({
@@ -199,5 +207,5 @@ if (!state) {
     signed_tx: signedTx,
     history,
   });
-  if (failsRun({ status, error })) process.exitCode = 1;
+  if (failsRun({ status, error, historyError })) process.exitCode = 1;
 }
