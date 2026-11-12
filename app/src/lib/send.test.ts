@@ -40,24 +40,30 @@ const account: WalletAccount = { address: PAYER, publicKey: new Uint8Array(32), 
 const status = (confirmationStatus: 'processed' | 'confirmed' | 'finalized', err: unknown = null) => ({ slot: 1n, confirmations: null, confirmationStatus, err });
 
 /** Sends one transfer against the queued answers, moving the clock a second per poll until send() settles. Every
- *  queued answer must be used: a poll more or fewer than expected fails the test. */
+ *  queued answer must be used: a poll more or fewer than expected fails the test. `elapsed` is the clock time, in
+ *  ms, send() took to settle. */
 async function sendWith(statuses: unknown[], heights: unknown[] = []) {
   Object.assign(chain, { statuses: [...statuses], heights: [...heights], errors: [] });
   const steps: SendStep[] = [];
+  const start = Date.now();
   let signature: string | undefined;
   let error: unknown;
   let settled = false;
+  let elapsed = 0;
   void send('devnet', wallet, account, [transferIx(PAYER, DEST, 1_000n)], (s) => steps.push(s))
     .then(
       (s) => (signature = s),
       (e: unknown) => (error = e),
     )
-    .finally(() => (settled = true));
+    .finally(() => {
+      settled = true;
+      elapsed = Date.now() - start;
+    });
   for (let polls = 0; !settled && polls < 20; polls++) await vi.advanceTimersByTimeAsync(1000);
   expect(settled, 'send() settled').toBe(true);
   expect(chain.statuses, 'status answers left').toEqual([]);
   expect(chain.heights, 'height answers left').toEqual([]);
-  return { signature, error, steps };
+  return { signature, error, steps, elapsed };
 }
 
 describe('send', () => {
@@ -104,11 +110,13 @@ describe('send', () => {
       [['error', 'error', 'error'], []],
       [[null], ['error', 'error', 'error']],
     ]) {
-      const { error } = await sendWith(statuses, heights);
+      const { error, elapsed } = await sendWith(statuses, heights);
       expect(error).toBeInstanceOf(MaybeLanded);
       expect((error as MaybeLanded).signature).toBe(SIGNATURE);
       expect(chain.errors).toHaveLength(3);
       expect((error as MaybeLanded).cause).toBe(chain.errors[2]);
+      // A second between attempts, so a short outage is ridden out rather than reported after three quick failures.
+      expect(elapsed).toBe(2000);
     }
   });
 
