@@ -1,6 +1,9 @@
 skip_local_validator = true
 
 [toolchain]
+# The versions the programs are built and tested with, here (scripts/wsl-build.sh) and in CI.
+anchor_version = "1.2.1"
+solana_version = "4.3.0"
 
 [features]
 resolution = true
@@ -25,6 +28,6 @@ cluster = "localnet"
 wallet = "~/.config/solana/qanary-devnet.json"
 
 [scripts]
-test = "cargo test"
+test = "cargo test --locked"
 
 [hooks]
