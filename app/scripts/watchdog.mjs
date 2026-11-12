@@ -71,7 +71,7 @@ function honeypotCheck({ balance, baseline }, force = false) {
 }
 
 /** True if `key` signed the transaction (a getTransaction response with encoding 'json'). The signers are the first
- *  header.numRequiredSignatures static account keys; an address lookup table can never supply a signer. */
+ *  header.numRequiredSignatures static account keys; address lookup tables never supply signers. */
 function signedBy(transaction, key) {
   const { header, accountKeys } = transaction.transaction.message;
   return accountKeys.slice(0, Number(header.numRequiredSignatures)).includes(key);
