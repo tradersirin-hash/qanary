@@ -74,15 +74,23 @@ impl Env {
         let create = Instruction::new_with_bytes(
             qanary_vault::id(),
             &qanary_vault::instruction::CreateVault { id: ID, key: key(0) }.data(),
-            qanary_vault::accounts::CreateVault { payer: env.payer.pubkey(), vault, system_program: system_program::ID }
-                .to_account_metas(None),
+            qanary_vault::accounts::CreateVault {
+                payer: env.payer.pubkey(),
+                vault,
+                system_program: system_program::ID,
+            }
+            .to_account_metas(None),
         );
         env.send(&[create]).expect("create vault");
         env
     }
 
     fn send(&mut self, ixs: &[Instruction]) -> Result<(), String> {
-        let tx = Transaction::new(&[&self.payer], Message::new(ixs, Some(&self.payer.pubkey())), self.svm.latest_blockhash());
+        let tx = Transaction::new(
+            &[&self.payer],
+            Message::new(ixs, Some(&self.payer.pubkey())),
+            self.svm.latest_blockhash(),
+        );
         let res = self.svm.send_transaction(tx).map_err(|e| format!("{:?}", e.err));
         self.svm.expire_blockhash();
         res.map(|m| self.logs = m.logs)
@@ -137,7 +145,8 @@ impl Env {
                 s.init_extension::<PausableConfig>(true).unwrap().paused = true.into();
             }
             if ext.hook {
-                s.init_extension::<TransferHook>(true).unwrap().program_id = Some(Pubkey::new_unique()).try_into().unwrap();
+                s.init_extension::<TransferHook>(true).unwrap().program_id =
+                    Some(Pubkey::new_unique()).try_into().unwrap();
             }
             s.init_account_type().unwrap();
             d
@@ -147,7 +156,17 @@ impl Env {
     }
 
     /// A token account at `address` with `ext` written straight into it.
-    fn token_account(&mut self, address: Pubkey, program: Pubkey, mint: Pubkey, owner: Pubkey, amount: u64, state: AccountState, ext: Ext) {
+    #[allow(clippy::too_many_arguments)]
+    fn token_account(
+        &mut self,
+        address: Pubkey,
+        program: Pubkey,
+        mint: Pubkey,
+        owner: Pubkey,
+        amount: u64,
+        state: AccountState,
+        ext: Ext,
+    ) {
         let base = TokenState { mint, owner, amount, state, ..TokenState::default() };
         let mut types = vec![];
         if ext.memo_required {
@@ -204,7 +223,15 @@ impl Env {
         signer::sign(&ID, q, &SEED, &action.message(&self.vault, q, &key(q + 1)), &[q as u8; lmots::N])
     }
 
-    fn submit(&mut self, sig: Vec<u8>, mint: Pubkey, vault_tokens: Pubkey, destination: Pubkey, program: Pubkey, amount: u64) -> Result<(), String> {
+    fn submit(
+        &mut self,
+        sig: Vec<u8>,
+        mint: Pubkey,
+        vault_tokens: Pubkey,
+        destination: Pubkey,
+        program: Pubkey,
+        amount: u64,
+    ) -> Result<(), String> {
         self.submit_meta(sig, mint, vault_tokens, destination, program, amount, true)
     }
 
@@ -221,9 +248,14 @@ impl Env {
         writable: bool,
     ) -> Result<(), String> {
         let q = self.nonce();
-        let mut metas =
-            qanary_vault::accounts::PqWithdrawToken { vault: self.vault, mint, vault_tokens, destination, token_program: program }
-                .to_account_metas(None);
+        let mut metas = qanary_vault::accounts::PqWithdrawToken {
+            vault: self.vault,
+            mint,
+            vault_tokens,
+            destination,
+            token_program: program,
+        }
+        .to_account_metas(None);
         metas[3].is_writable = writable;
         let ix = Instruction::new_with_bytes(
             qanary_vault::id(),
@@ -325,7 +357,12 @@ fn mints_and_destinations_that_can_never_take_the_transfer_are_skipped() {
         (Ext { paused: true, ..Ext::default() }, Ext::default(), skip::MINT, "paused mint"),
         (Ext { hook: true, ..Ext::default() }, Ext::default(), skip::MINT, "transfer hook"),
         (Ext::default(), Ext { memo_required: true, ..Ext::default() }, skip::DESTINATION, "memo required"),
-        (Ext::default(), Ext { confidential_only: true, ..Ext::default() }, skip::DESTINATION, "confidential credits only"),
+        (
+            Ext::default(),
+            Ext { confidential_only: true, ..Ext::default() },
+            skip::DESTINATION,
+            "confidential credits only",
+        ),
     ];
     for (mint_ext, dest_ext, reason, case) in cases {
         let mut env = Env::new();
@@ -424,13 +461,23 @@ fn a_mint_that_never_existed_or_was_closed_is_skipped_with_either_token_program(
     let ata = env.ata(&mint, &TOKEN_2022);
     let vault = env.vault;
     env.token_account(ata, TOKEN_2022, mint, vault, 0, AccountState::Initialized, Ext::default());
-    env.svm.set_account(mint, Account { lamports: 0, data: vec![], owner: system_program::ID, executable: false, rent_epoch: 0 }).unwrap();
+    env.svm
+        .set_account(
+            mint,
+            Account { lamports: 0, data: vec![], owner: system_program::ID, executable: false, rent_epoch: 0 },
+        )
+        .unwrap();
     env.withdraw(TOKEN_2022, mint, dest, 400).expect("closed mint skipped, not failed");
     assert_eq!((env.nonce(), env.skipped()), (1, Some(skip::MINT)));
     // Either token program gives the same answer, so a submitter cannot pick one that fails.
     let mut env = Env::new();
     let (mint, dest) = env.funded(TOKEN_2022, Ext::default(), Ext::default());
-    env.svm.set_account(mint, Account { lamports: 0, data: vec![], owner: system_program::ID, executable: false, rent_epoch: 0 }).unwrap();
+    env.svm
+        .set_account(
+            mint,
+            Account { lamports: 0, data: vec![], owner: system_program::ID, executable: false, rent_epoch: 0 },
+        )
+        .unwrap();
     env.withdraw(TOKEN, mint, dest, 400).expect("closed mint, other program: skipped");
     assert_eq!((env.nonce(), env.skipped()), (1, Some(skip::MINT)));
 }

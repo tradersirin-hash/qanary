@@ -30,7 +30,11 @@ pub(crate) fn move_sol<'info>(vault: &Account<'info, Vault>, to: &AccountInfo<'i
 }
 
 /// Classical path: fails loudly on a bad amount (no one-time key is at stake).
-pub(crate) fn send_sol_checked<'info>(vault: &Account<'info, Vault>, to: &AccountInfo<'info>, amount: u64) -> Result<()> {
+pub(crate) fn send_sol_checked<'info>(
+    vault: &Account<'info, Vault>,
+    to: &AccountInfo<'info>,
+    amount: u64,
+) -> Result<()> {
     require!(amount > 0, VaultError::ZeroAmount);
     require!(amount <= spendable_sol(vault)?, VaultError::InsufficientFunds);
     move_sol(vault, to, amount)

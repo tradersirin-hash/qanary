@@ -84,16 +84,24 @@ pub struct PqWithdrawSol<'info> {
     pub destination: UncheckedAccount<'info>,
 }
 
-pub fn handle_pq_withdraw_sol(ctx: Context<PqWithdrawSol>, signature: Vec<u8>, amount: u64, next_key: [u8; 24]) -> Result<()> {
+pub fn handle_pq_withdraw_sol(
+    ctx: Context<PqWithdrawSol>,
+    signature: Vec<u8>,
+    amount: u64,
+    next_key: [u8; 24],
+) -> Result<()> {
     let vault_key = ctx.accounts.vault.key();
     let destination = ctx.accounts.destination.to_account_info();
     let cannot_receive = cannot_receive(&destination);
     // Anything else must be passed writable; a read-only meta is the submitter's mistake, fixed by resending.
     require!(cannot_receive || destination.is_writable, VaultError::DestinationNotWritable);
 
-    ctx.accounts
-        .vault
-        .authorize(&vault_key, &signature, next_key, &Action::WithdrawSol { destination: destination.key(), amount })?;
+    ctx.accounts.vault.authorize(
+        &vault_key,
+        &signature,
+        next_key,
+        &Action::WithdrawSol { destination: destination.key(), amount },
+    )?;
 
     let available = super::spendable_sol(&ctx.accounts.vault)?;
     let skipped = if cannot_receive {
@@ -106,7 +114,13 @@ pub fn handle_pq_withdraw_sol(ctx: Context<PqWithdrawSol>, signature: Vec<u8>, a
         None
     };
     if let Some(reason) = skipped {
-        emit!(ActionSkipped { vault: vault_key, nonce: ctx.accounts.vault.nonce, requested: amount, available, reason });
+        emit!(ActionSkipped {
+            vault: vault_key,
+            nonce: ctx.accounts.vault.nonce,
+            requested: amount,
+            available,
+            reason
+        });
         return Ok(());
     }
     super::move_sol(&ctx.accounts.vault, &destination, amount)?;
@@ -136,7 +150,12 @@ pub struct PqWithdrawToken<'info> {
 /// Tokens move only out of the vault's associated token account. Mints with a transfer hook, the
 /// NonTransferable extension or a paused Pausable config, and destinations that require memos or refuse
 /// non-confidential credits, are skipped: the transfer could never succeed.
-pub fn handle_pq_withdraw_token(ctx: Context<PqWithdrawToken>, signature: Vec<u8>, amount: u64, next_key: [u8; 24]) -> Result<()> {
+pub fn handle_pq_withdraw_token(
+    ctx: Context<PqWithdrawToken>,
+    signature: Vec<u8>,
+    amount: u64,
+    next_key: [u8; 24],
+) -> Result<()> {
     let vault_key = ctx.accounts.vault.key();
     let mint = ctx.accounts.mint.key();
     let destination = ctx.accounts.destination.key();
@@ -156,14 +175,23 @@ pub fn handle_pq_withdraw_token(ctx: Context<PqWithdrawToken>, signature: Vec<u8
         VaultError::NotVaultTokenAccount
     );
 
-    ctx.accounts
-        .vault
-        .authorize(&vault_key, &signature, next_key, &Action::WithdrawToken { mint, destination, amount })?;
+    ctx.accounts.vault.authorize(
+        &vault_key,
+        &signature,
+        next_key,
+        &Action::WithdrawToken { mint, destination, amount },
+    )?;
 
-    let decimals = match token_transfer_check(&ctx.accounts, amount) {
+    let decimals = match token_transfer_check(ctx.accounts, amount) {
         Ok(decimals) => decimals,
         Err((available, reason)) => {
-            emit!(ActionSkipped { vault: vault_key, nonce: ctx.accounts.vault.nonce, requested: amount, available, reason });
+            emit!(ActionSkipped {
+                vault: vault_key,
+                nonce: ctx.accounts.vault.nonce,
+                requested: amount,
+                available,
+                reason
+            });
             return Ok(());
         }
     };
@@ -217,7 +245,11 @@ fn token_transfer_check(a: &PqWithdrawToken, amount: u64) -> core::result::Resul
         .get_extension::<ConfidentialTransferAccount>()
         .map(|c| !bool::from(&c.allow_non_confidential_credits))
         .unwrap_or(false);
-    if to.base.mint != a.mint.key() || to.base.state != AccountState::Initialized || memo_required(&to) || refuses_plain_credits {
+    if to.base.mint != a.mint.key()
+        || to.base.state != AccountState::Initialized
+        || memo_required(&to)
+        || refuses_plain_credits
+    {
         return Err(unusable);
     }
     Ok(mint.base.decimals)
@@ -230,7 +262,12 @@ pub struct PqSetOwner<'info> {
 }
 
 /// Sets, replaces or removes the classical convenience owner.
-pub fn handle_pq_set_owner(ctx: Context<PqSetOwner>, signature: Vec<u8>, owner: Option<Pubkey>, next_key: [u8; 24]) -> Result<()> {
+pub fn handle_pq_set_owner(
+    ctx: Context<PqSetOwner>,
+    signature: Vec<u8>,
+    owner: Option<Pubkey>,
+    next_key: [u8; 24],
+) -> Result<()> {
     let vault_key = ctx.accounts.vault.key();
     let vault = &mut ctx.accounts.vault;
     vault.authorize(&vault_key, &signature, next_key, &Action::SetOwner { owner })?;
@@ -252,5 +289,9 @@ pub(crate) fn transfer_tokens<'info>(
     let seeds: &[&[u8]] = &[VAULT_SEED, vault.id.as_ref(), vault.genesis_key.as_ref(), &bump];
     let signer: &[&[&[u8]]] = &[seeds];
     let accounts = TransferChecked { from, mint, to, authority: vault.to_account_info() };
-    token_interface::transfer_checked(CpiContext::new_with_signer(token_program.key(), accounts, signer), amount, decimals)
+    token_interface::transfer_checked(
+        CpiContext::new_with_signer(token_program.key(), accounts, signer),
+        amount,
+        decimals,
+    )
 }

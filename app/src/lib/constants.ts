@@ -19,4 +19,4 @@ export const TOKEN_MINT = 'Baj1wjp5Pd8nWTqExnjpvfXzrhE1RvCgw2ZHSjZ9pump';
 export const SHOWN_TOKENS = 8;
 /** Rust tests passing in `onchain/` (`bash scripts/wsl-build.sh`). constants.test.ts and CI fail when it differs
  *  from the suite. 0 hides the line. */
-export const RUST_TEST_COUNT = 36;
+export const RUST_TEST_COUNT = 40;
