@@ -55,6 +55,32 @@ describe('copy with both programs on devnet (the default)', () => {
   });
 });
 
+describe('scan copy', () => {
+  const BADGES: Key[] = ['vExposed', 'vNoAuthority', 'vNoCriticalAuthority', 'vImmutable', 'authExposed', 'authMultisigExposed', 'authNone'];
+
+  it('calls an Ed25519 key quantum-exposed, never bare "Exposed", and calls nothing safe', () => {
+    expect(t('vExposed')).toBe('Quantum-exposed');
+    expect(t('authExposed')).toBe('Ed25519 key · quantum-exposed');
+    expect(t('authMultisigExposed', { m: 2, n: 4 })).toBe('2-of-4 multisig · quantum-exposed signers');
+    for (const key of BADGES) expect(t(key, { m: 2, n: 4 }), key).not.toMatch(/safe|^exposed$/i);
+  });
+
+  it('says quantum-exposed keys are not exploitable today', () => {
+    for (const key of ['todayKey', 'todayMultisig'] as Key[]) {
+      expect(t(key, { bits: 15, target: 256 }), key).toMatch(/^Not exploitable today: .* 15 bits; Ed25519 keys have 256\.$/);
+    }
+  });
+
+  it('claims only the authorities the scan reads', () => {
+    for (const key of ['howScanBody', 'tierScanBody', 'scanningCaption', 'accountBody', 'evmContractBody'] as Key[]) {
+      expect(t(key), key).not.toMatch(/which keys control|who controls|safety depends|what to check/i);
+    }
+    for (const key of ['howScanBody', 'tierScanBody'] as Key[]) expect(t(key), key).toMatch(/not read/);
+    expect(t('notChecked')).toBe('Not checked: admin, config, pause or fee keys stored in program state. This card shows only who can upgrade the code.');
+    expect(t('evmNativeNote')).toMatch(/^Basic check: /);
+  });
+});
+
 describe('copy on mainnet', () => {
   it('fills every slot and never says devnet', () => {
     for (const key of Object.keys(DEVNET) as Key[]) {
