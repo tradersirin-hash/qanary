@@ -363,20 +363,40 @@ export const checkHoneypotIx = (canary: Address): Instruction => ({
 
 /** Thrown when a transaction was sent but its fate is unknown: it may still land. */
 export class MaybeLanded extends Error {
-  constructor(readonly signature: string) {
-    super('The transaction was sent but not confirmed in time. It may still land: check the explorer before trying again.');
+  constructor(
+    readonly signature: string,
+    options?: ErrorOptions,
+  ) {
+    super('The transaction was sent but not confirmed in time. It may still land: check the explorer before trying again.', options);
+  }
+}
+
+/** RPC errors in a row, while waiting for a sent transaction, after which its fate is reported as unknown. */
+const CONFIRM_ATTEMPTS = 3;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** One RPC read while confirming, retried every second. The wallet has already sent the transaction, so an RPC that
+ *  keeps failing leaves its fate unknown: that is MaybeLanded (check the explorer), never a bare network error. */
+async function readWhileSent<T>(signature: string, request: () => Promise<T>): Promise<T> {
+  for (let failures = 1; ; failures++) {
+    try {
+      return await request();
+    } catch (e) {
+      if (failures === CONFIRM_ATTEMPTS) throw new MaybeLanded(signature, { cause: e });
+      await sleep(1000);
+    }
   }
 }
 
 async function confirm(cluster: Cluster, signature: string, lastValidBlockHeight: bigint): Promise<void> {
   for (;;) {
-    const { value } = await rpc(cluster).getSignatureStatuses([signature as never]).send();
+    const { value } = await readWhileSent(signature, () => rpc(cluster).getSignatureStatuses([signature as never]).send());
     const status = value[0];
     if (status?.err) throw new Error(`Transaction failed: ${JSON.stringify(status.err, (_k, v) => (typeof v === 'bigint' ? v.toString() : v))}`);
     if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') return;
-    const height = await rpc(cluster).getBlockHeight().send();
+    const height = await readWhileSent(signature, () => rpc(cluster).getBlockHeight().send());
     if (height > lastValidBlockHeight) throw new MaybeLanded(signature);
-    await new Promise((r) => setTimeout(r, 1000));
+    await sleep(1000);
   }
 }
 
