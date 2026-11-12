@@ -19,30 +19,42 @@ fn canary_pda() -> Pubkey {
     Pubkey::find_program_address(&[CANARY_SEED], &qanary_bounty::id()).0
 }
 
-fn setup(sigverify: bool) -> (LiteSVM, Keypair) {
+fn load(sigverify: bool) -> (LiteSVM, Keypair) {
     let mut svm = LiteSVM::new().with_sigverify(sigverify);
     // Loaded at run time so `anchor build` can compile this test before the .so exists.
     let so = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("../deploy/qanary_bounty.so");
     svm.add_program_from_file(qanary_bounty::id(), so).unwrap();
     let payer = Keypair::new();
     svm.airdrop(&payer.pubkey(), 10 * SOL).unwrap();
-    let ix = Instruction::new_with_bytes(
+    (svm, payer)
+}
+
+fn initialize_ix(payer: &Pubkey) -> Instruction {
+    Instruction::new_with_bytes(
         qanary_bounty::id(),
         &qanary_bounty::instruction::Initialize {}.data(),
         qanary_bounty::accounts::Initialize {
-            payer: payer.pubkey(),
+            payer: *payer,
             canary: canary_pda(),
             honeypot: CANARY_KEY,
             system_program: system_program::ID,
         }
         .to_account_metas(None),
-    );
-    send(&mut svm, &payer, ix).expect("initialize");
+    )
+}
+
+fn setup(sigverify: bool) -> (LiteSVM, Keypair) {
+    let (mut svm, payer) = load(sigverify);
+    send(&mut svm, &payer, initialize_ix(&payer.pubkey())).expect("initialize");
     (svm, payer)
 }
 
 fn send(svm: &mut LiteSVM, payer: &Keypair, ix: Instruction) -> Result<(), String> {
-    let tx = Transaction::new(&[payer], Message::new(&[ix], Some(&payer.pubkey())), svm.latest_blockhash());
+    send_all(svm, payer, &[ix])
+}
+
+fn send_all(svm: &mut LiteSVM, payer: &Keypair, ixs: &[Instruction]) -> Result<(), String> {
+    let tx = Transaction::new(&[payer], Message::new(ixs, Some(&payer.pubkey())), svm.latest_blockhash());
     let res = svm.send_transaction(tx).map(|_| ()).map_err(|e| format!("{:?}", e.err));
     svm.expire_blockhash();
     res
@@ -205,4 +217,65 @@ fn canary_account_layout_matches_the_clients() {
     canary.try_serialize(&mut data).unwrap();
     assert_eq!(data.len(), 8 + Canary::INIT_SPACE);
     assert_eq!(data, unhex(CANARY_VECTOR));
+}
+
+#[test]
+fn nothing_runs_before_initialize_and_initialize_runs_once() {
+    let (mut svm, payer) = load(false);
+    set_honeypot(&mut svm, 2 * SOL);
+    // anchor_lang::error::ErrorCode::AccountNotInitialized
+    let not_initialized = "Custom(3012)";
+    for ix in [fund_ix(&payer.pubkey(), SOL), fund_honeypot_ix(&payer.pubkey(), SOL), check_ix()] {
+        let err = send(&mut svm, &payer, ix).unwrap_err();
+        assert!(err.contains(not_initialized), "{err}");
+    }
+    assert!(svm.send_transaction(claim_tx(&svm, &payer, &payer.pubkey())).is_err());
+    assert!(svm.get_account(&canary_pda()).is_none_or(|a| a.lamports == 0));
+    assert_eq!(svm.get_account(&CANARY_KEY).unwrap().lamports, 2 * SOL);
+
+    send(&mut svm, &payer, initialize_ix(&payer.pubkey())).unwrap();
+    let fresh = canary(&svm);
+    assert!(!fresh.tripped);
+    assert_eq!((fresh.honeypot_baseline, fresh.total_funded), (2 * SOL, 0));
+
+    set_honeypot(&mut svm, 2 * SOL - 1);
+    send(&mut svm, &payer, check_ix()).unwrap();
+    let tripped = canary(&svm);
+    assert!(tripped.tripped);
+    assert!(send(&mut svm, &payer, initialize_ix(&payer.pubkey())).is_err());
+    let after = canary(&svm);
+    assert_eq!(
+        (after.tripped, after.tripped_slot, after.honeypot_baseline),
+        (true, tripped.tripped_slot, tripped.honeypot_baseline)
+    );
+}
+
+#[test]
+fn the_setup_transaction_works_even_if_sol_reached_the_canary_first() {
+    use anchor_lang::Space;
+    let (mut svm, payer) = load(true);
+    let squat = svm.minimum_balance_for_rent_exemption(0);
+    svm.set_account(
+        canary_pda(),
+        Account { lamports: squat, data: vec![], owner: system_program::ID, executable: false, rent_epoch: 0 },
+    )
+    .unwrap();
+    set_honeypot(&mut svm, SOL);
+    // The order app/scripts/canary-setup.mjs sends in one transaction.
+    send_all(
+        &mut svm,
+        &payer,
+        &[
+            initialize_ix(&payer.pubkey()),
+            fund_ix(&payer.pubkey(), 300_000_000),
+            fund_honeypot_ix(&payer.pubkey(), 300_000_000),
+        ],
+    )
+    .unwrap();
+    let account = svm.get_account(&canary_pda()).unwrap();
+    assert_eq!(account.owner, qanary_bounty::id());
+    assert_eq!(account.lamports, svm.minimum_balance_for_rent_exemption(8 + Canary::INIT_SPACE) + 300_000_000);
+    let c = canary(&svm);
+    assert_eq!((c.total_funded, c.honeypot_baseline), (300_000_000, 1_300_000_000));
+    assert_eq!(svm.get_account(&CANARY_KEY).unwrap().lamports, 1_300_000_000);
 }
