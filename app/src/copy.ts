@@ -318,7 +318,7 @@ const copy = {
   historyUnreadable:
     "Could not read the vault's full history on {cluster}, so one-time key #{n} signed nothing: it must first be checked for a request signed on another device. Try again in a moment.",
   historyTooLong:
-    'The vault has more than {max} transactions since one-time key #{n} took over, too many to check here for a request signed on another device. To keep the key safe, nothing was signed.',
+    'The vault has {max} or more transactions since one-time key #{n} took over, too many to check here for a request signed on another device. To keep the key safe, nothing was signed.',
   badAmount: 'Enter a positive SOL amount, like 0.5, with at most 9 decimals.',
   badBalance: 'That is more than the vault can spend.',
   badDestination: 'Enter a valid wallet address (not the vault, a program or a sysvar).',

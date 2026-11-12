@@ -261,7 +261,7 @@ describe('oneTimeSignature', () => {
     const e = await refusal(q);
     expect(e).toBeInstanceOf(HistoryIncomplete);
     expect((e as HistoryIncomplete).reason).toBe('tooLong');
-    expect((e as HistoryIncomplete).message).toContain(`more than ${HISTORY_CAP} transactions`);
+    expect((e as HistoryIncomplete).message).toContain(`${HISTORY_CAP} or more transactions`);
     expect(pendingFor(VAULT, q)).toBeNull();
 
     chain.history = [...deposits(HISTORY_CAP - 1), handOver(q)];
