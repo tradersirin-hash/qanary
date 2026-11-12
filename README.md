@@ -46,7 +46,7 @@ cd onchain && bash scripts/wsl-build.sh
 
 ## Prior art and how Qanary differs
 
-Each part of Qanary has prior art:
+Qanary Scan, Qanary Vault and the planned Qanary Watch each have prior art:
 
 - **Change monitors.** [Helius Watchtower](https://github.com/helius-labs/watchtower), the Solana Foundation's [Solana Microscope](https://github.com/solana-foundation/solana-microscope), the Squads [multisig monitor](https://github.com/Solana-Multisig-Tools/multisig-monitor) and [Range](https://docs.range.org/alerting/introduction) alert a team when the programs and multisigs it watches change: upgrades, authority transfers, and member, threshold or time-lock changes.
 - **Post-quantum vaults.** Blueshift published a [Winternitz vault](https://github.com/blueshift-gg/solana-winternitz-vault) for Solana in January 2025, holding lamports behind hash-based one-time signatures. Qanary Vault is another design in this space (devnet only, unaudited) and doubles as the reference program that reads the canary.
@@ -54,9 +54,9 @@ Each part of Qanary has prior art:
 
 What Qanary adds:
 
-- **Answers for anyone who depends on a program or token**, not only for the team that runs it: who can change it, how strong that control is (one Ed25519 key, m of n multisig keys, a time lock, or no key at all), and how that was established (read from the account, confirmed by re-deriving the address, or inferred from transactions and marked unconfirmed). Scan reads the authorities of any Solana address; the census answers all three questions for the programs behind Solana's 25 largest DeFi protocols and for 22 large tokens.
+- **Answers for anyone who depends on a program or token**, not only for the team that runs it: who can change it, how strong that control is (one Ed25519 key, m of n multisig keys, a time lock, or no key at all), and how that was established (read from the account, confirmed by re-deriving the address, or inferred from transactions and marked unconfirmed). Scan reads the authorities of any Solana address; the census answers all three for the 62 programs behind Solana's 25 largest DeFi protocols and for 22 large tokens.
 - **A repeatable public census.** [Solana quantum readiness](docs/readiness/2026-11.md) publishes aggregates only, from an open script that anyone can re-run, so the same questions can be asked again and changes show over time. November 2026 is the first edition.
-- **A canary flag that programs can read.** The bounty's `tripped` flag is set on-chain by proof that someone can sign with an Ed25519 key nobody holds (a bounty claim, or a drop in that key's honeypot), not by a trusted signer. Any Solana program can read it and close its classical paths.
+- **A canary flag that programs can read.** The bounty's `tripped` flag is set on-chain by proof that someone can sign with an Ed25519 key nobody holds (a bounty claim, or a drop in that key's honeypot), not by a trusted signer. It runs on devnet for now, where any program can read it and close its classical paths.
 
 ## Business model
 
