@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { t, tOn, type Key } from '../copy';
 import { CANARY_CLUSTER, CANARY_KEY_ID } from '../lib/constants';
 import { friendlyError } from '../lib/errors';
-import { amount } from '../lib/format';
+import { amount, exactSol } from '../lib/format';
 import { explorer, REPO_URL } from '../lib/links';
 import {
   canaryAddress,
@@ -16,7 +16,7 @@ import {
   send,
   type CanaryState,
 } from '../lib/qanary';
-import { knownCanary, type CanaryView } from '../lib/useCanary';
+import { honeypotDrained, knownCanary, type CanaryView } from '../lib/useCanary';
 import type { WalletState } from '../lib/useWallet';
 import { AlertTriangle, ArrowUpRight } from './icons';
 import {
@@ -45,7 +45,8 @@ function headline(view: CanaryView): { text: Key; className: string } | null {
     case 'loading':
       return null;
     case 'live':
-      return view.state.tripped ? { text: 'canaryTripped', className: 'text-red-300' } : { text: 'canaryAlive', className: 'text-emerald-300' };
+      if (view.state.tripped) return { text: 'canaryTripped', className: 'text-red-300' };
+      return honeypotDrained(view.state) ? { text: 'canaryDrained', className: 'text-red-300' } : { text: 'canaryAlive', className: 'text-emerald-300' };
     case 'notInitialized':
       return { text: 'canaryNotInitialized', className: 'text-fg' };
     case 'notDeployed':
@@ -64,7 +65,10 @@ export function CanaryPanel({ w, view, refresh }: Props) {
   const state = knownCanary(view);
   const live = view.kind === 'live' ? view.state : null;
   const tripped = state?.tripped ?? false;
-  const alive = !!live && !live.tripped;
+  // The key is already proven broken, but the flag stays down until someone runs the watchdog check.
+  const drained = !!state && honeypotDrained(state);
+  const alarm = tripped || drained;
+  const alive = !!live && !live.tripped && !drained;
   const head = headline(view);
   const checkedAt = view.kind === 'loading' ? null : view.checkedAt;
 
@@ -114,15 +118,15 @@ export function CanaryPanel({ w, view, refresh }: Props) {
           {t('canaryMainnetBody')}
         </Callout>
       )}
-      <Card accent className={tripped ? 'border-danger/40! bg-danger/[0.05]!' : undefined}>
+      <Card accent className={alarm ? 'border-danger/40! bg-danger/[0.05]!' : undefined}>
         <div className="flex flex-wrap items-center gap-4">
           <div
             className={cn(
               'relative grid h-14 w-14 shrink-0 place-items-center rounded-2xl ring-1 ring-inset',
-              alive ? 'bg-safe/10 ring-safe/30' : tripped ? 'bg-danger/10 ring-danger/30' : 'bg-white/5 ring-white/10',
+              alive ? 'bg-safe/10 ring-safe/30' : alarm ? 'bg-danger/10 ring-danger/30' : 'bg-white/5 ring-white/10',
             )}
           >
-            {tripped ? (
+            {alarm ? (
               <AlertTriangle className="h-6 w-6 text-danger" />
             ) : (
               <img src="/qanary.svg" alt="" width={28} height={28} className={cn('h-7 w-7', !alive && 'opacity-60 grayscale')} />
@@ -146,6 +150,18 @@ export function CanaryPanel({ w, view, refresh }: Props) {
                 </>
               )}
             </div>
+            {state?.tripped && (
+              <p className="mt-1 text-sm leading-6 text-fg-muted">
+                {state.claimer ? (
+                  <>
+                    {t('trippedByClaim', { slot: state.trippedSlot.toLocaleString('en-US') })}{' '}
+                    <AddressChip value={state.claimer} href={explorer(CANARY_CLUSTER, `address/${state.claimer}`)} />
+                  </>
+                ) : (
+                  t('trippedByHoneypot', { slot: state.trippedSlot.toLocaleString('en-US') })
+                )}
+              </p>
+            )}
             {checkedAt && (
               <p className="mt-0.5 font-mono text-xs text-fg-subtle">{t('lastChecked', { time: new Date(checkedAt).toLocaleTimeString('en-US') })}</p>
             )}
@@ -160,9 +176,27 @@ export function CanaryPanel({ w, view, refresh }: Props) {
         {state && (
           <StatGrid className="mt-5 sm:grid-cols-3">
             <Stat label={t('bountyPool')} value={sol(state.pool)} valueClass="font-mono text-2xl font-medium text-canary" />
-            <Stat label={t('honeypot')} value={sol(state.honeypotLamports)} />
+            {/* Drained, the exact amount: a small drop would round to the baseline. */}
+            <Stat
+              label={t('honeypot')}
+              value={drained ? `${exactSol(state.honeypotLamports)} SOL` : sol(state.honeypotLamports)}
+              valueClass={drained ? 'font-mono text-2xl font-medium text-red-300' : undefined}
+            />
             <Stat label={t('canaryKey')} value={<AddressChip value={CANARY_KEY_ID} href={explorer(CANARY_CLUSTER, `address/${CANARY_KEY_ID}`)} />} valueClass="text-sm" />
           </StatGrid>
+        )}
+
+        {/* Every visitor can be the watchdog: the drop is public, and check_honeypot is permissionless. */}
+        {drained && live && (
+          <div className="mt-5">
+            <Callout tone="danger" title={t('drainedTitle')}>
+              {t('drainedBody', { balance: exactSol(live.honeypotLamports), baseline: exactSol(live.honeypotBaseline) })}
+            </Callout>
+            <Button variant="primary" className="mt-3 w-full sm:w-auto" loading={busy === 'watchdog'} disabled={!!busy} onClick={() => void watchdog()}>
+              {t('runWatchdog')}
+            </Button>
+            <p className={HINT}>{t('hintWatchdog')}</p>
+          </div>
         )}
 
         <Callout tone="info" title={t('signalTitle')} className="mt-5">

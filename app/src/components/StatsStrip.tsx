@@ -3,7 +3,8 @@ import { clusterTag, t, tOn, type Key } from '../copy';
 import { RECORD, STATS } from '../data/qday';
 import { CANARY_CLUSTER } from '../lib/constants';
 import { amount } from '../lib/format';
-import type { CanaryView } from '../lib/useCanary';
+import type { CanaryState } from '../lib/qanary';
+import { honeypotDrained, type CanaryView } from '../lib/useCanary';
 import { cn, Skeleton, SourceLink } from './ui';
 
 function LiveFoot() {
@@ -35,6 +36,13 @@ const CANARY_WORD: Record<'notInitialized' | 'notDeployed' | 'error', Key> = {
   error: 'statUnreachable',
 };
 
+/** The word for a canary read live: a honeypot below its baseline is as red as a tripped flag. */
+function LiveWord({ state }: { state: CanaryState }) {
+  const drained = honeypotDrained(state);
+  const word: Key = state.tripped ? 'statTripped' : drained ? 'statDrained' : 'statAlive';
+  return <span className={state.tripped || drained ? 'text-red-300' : 'text-emerald-300'}>{t(word)}</span>;
+}
+
 /** Live canary state and pool (on the canary's cluster), plus two sourced Q-Day numbers. No invented figures. */
 export function StatsStrip({ view }: { view: CanaryView }) {
   const live = view.kind === 'live' ? view.state : null;
@@ -44,7 +52,7 @@ export function StatsStrip({ view }: { view: CanaryView }) {
     view.kind === 'loading' ? (
       <Skeleton className="h-8 w-24" />
     ) : view.kind === 'live' ? (
-      <span className={view.state.tripped ? 'text-red-300' : 'text-emerald-300'}>{t(view.state.tripped ? 'statTripped' : 'statAlive')}</span>
+      <LiveWord state={view.state} />
     ) : (
       <span className={cn('text-xl', view.kind === 'error' && 'text-fg-muted')}>{t(CANARY_WORD[view.kind])}</span>
     );

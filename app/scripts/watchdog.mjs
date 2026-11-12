@@ -5,14 +5,24 @@
 // (default: the public RPC of that cluster; on devnet the older DEVNET_RPC is still read). Lamports at the
 // canary key can only go down if its private key signed, so a balance below the recorded baseline means
 // someone broke the key: the watchdog then calls the permissionless `check_honeypot`, which trips the canary
-// on-chain. Calling it when nothing dropped only refreshes the baseline, so a wrong guess is harmless.
+// on-chain. A balance above the baseline (a plain transfer to the canary key) gets the same call, which raises
+// the baseline to the balance, so a key-breaker cannot take that surplus unnoticed. Calling it when nothing
+// dropped only refreshes the baseline, so a wrong guess is harmless.
+//
+// A drop shows only while it lasts: a key-breaker could drain the honeypot and refill it between two runs, or
+// sign without moving any SOL. So the watchdog also reads the newest HISTORY_LIMIT transactions (default 100)
+// that mention the canary key, and reports any that the key signed: that is proof of a broken key even when the
+// balance looks intact. The program cannot take a signature as proof yet, so this opens an issue but leaves the
+// flag untripped. Each run reads only the newest ones, so a flood of more than HISTORY_LIMIT transactions
+// between two runs could push a signed one out of view; a key that never signs on-chain stays invisible.
 //
 // Fee payer, needed only to send: the WATCHDOG_KEYPAIR secret if set (a JSON array of 64 secret-key bytes, or
 // 64 hex chars of a 32-byte seed); otherwise, on devnet, a throwaway key funded by an airdrop at the moment it
 // is needed. Mainnet has no airdrop, so without a key the watchdog still reads and reports, and only a send fails.
-// Writes cluster=… and status=alive|drained|tripped|missing (and details) to $GITHUB_OUTPUT for the workflow's
-// alert step. A forced check that cannot send (say, a malformed WATCHDOG_KEYPAIR) fails the run; a real drop
-// never does, so the alert step still opens the issue.
+// Writes cluster=… and status=alive|drained|signed|tripped|missing (and details) to $GITHUB_OUTPUT for the
+// workflow's alert step. A send that fails while nothing is wrong (a forced check, or raising the baseline, say
+// with a malformed WATCHDOG_KEYPAIR) fails the run, and so does a history that could not be read, so neither
+// passes for alive; a real drop or a signature never does, so the alert step still opens the issue.
 import { appendFileSync } from 'node:fs';
 import { sha256 } from '@noble/hashes/sha2';
 import {
@@ -33,6 +43,7 @@ import {
   setTransactionMessageLifetimeUsingBlockhash,
   signTransactionMessageWithSigners,
 } from '@solana/kit';
+import { failsRun, findSignature, historyNote, honeypotCheck, watchStatus } from './watchdog-logic.mjs';
 
 const BOUNTY_PROGRAM = address('HhrtGaEUk6Tar4cdCHkgTZj7jY5YXha4wjfdm8EteXRV');
 const CANARY_KEY = address('4H3XvrAPRRJuSaTZJt3XSRpEVPCPKJjWy69jDkx1VNwZ');
@@ -45,6 +56,10 @@ const cluster = process.env.CLUSTER || 'devnet';
 if (!Object.hasOwn(CLUSTERS, cluster)) throw new Error(`CLUSTER must be devnet or mainnet, not "${cluster}"`);
 const rpc = createSolanaRpc(process.env.RPC_URL || (cluster === 'devnet' && process.env.DEVNET_RPC) || CLUSTERS[cluster].rpc);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// How many of the newest transactions that mention the canary key each run reads: one getSignaturesForAddress call
+// per 1000, then one getTransaction each.
+const HISTORY_LIMIT = Number(process.env.HISTORY_LIMIT || 100);
+if (!Number.isInteger(HISTORY_LIMIT) || HISTORY_LIMIT < 1) throw new Error(`HISTORY_LIMIT must be a whole number above 0, not "${process.env.HISTORY_LIMIT}"`);
 
 function report(fields) {
   const lines = Object.entries(fields).map(([k, v]) => `${k}=${String(v).replace(/\n/g, ' ')}`);
@@ -52,16 +67,17 @@ function report(fields) {
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `${lines.join('\n')}\n`);
 }
 
-/** Canary account: disc 8 | tripped 1 | tripped_slot 8 | claimer 32 | honeypot_baseline 8 | total_funded 8 | bump 1. */
+/** Canary account: disc 8 | tripped 1 | tripped_slot 8 | claimer 32 | honeypot_baseline 8 | total_funded 8 | bump 1.
+ *  Read in one call with the honeypot, so the baseline and the balance come from the same slot: two calls could
+ *  straddle a fund_honeypot and report a drop that never happened. */
 async function readCanary(canary) {
-  const [{ value: account }, { value: balance }] = await Promise.all([
-    rpc.getAccountInfo(canary, { encoding: 'base64', commitment: 'confirmed' }).send(),
-    rpc.getBalance(CANARY_KEY, { commitment: 'confirmed' }).send(),
-  ]);
+  const {
+    value: [account, honeypot],
+  } = await rpc.getMultipleAccounts([canary, CANARY_KEY], { encoding: 'base64', commitment: 'confirmed' }).send();
   if (!account || account.owner !== BOUNTY_PROGRAM) return null;
   const d = Buffer.from(account.data[0], 'base64');
   if (d.length < 66) return null;
-  return { tripped: d[8] === 1, baseline: d.readBigUInt64LE(49), balance };
+  return { tripped: d[8] === 1, baseline: d.readBigUInt64LE(49), balance: honeypot?.lamports ?? 0n };
 }
 
 async function confirm(signature) {
@@ -122,6 +138,25 @@ async function checkHoneypot(canary) {
   return { signature, payer: signer.address };
 }
 
+/** Sends an RPC request, and once more after a pause if it fails: the public RPCs answer a burst with 429. */
+const retryOnce = (send) => send().catch(() => sleep(2000).then(send));
+
+/** The first transaction the canary key signed, if any, among the newest HISTORY_LIMIT that mention it. Reads are
+ *  paced to stay under the public RPCs' per-method limit (about 4 calls a second). */
+async function signedHistory() {
+  return findSignature({
+    key: CANARY_KEY,
+    limit: HISTORY_LIMIT,
+    page: (before, limit) => retryOnce(() => rpc.getSignaturesForAddress(CANARY_KEY, { before, limit, commitment: 'confirmed' }).send()),
+    read: async (signature) => {
+      await sleep(300);
+      return retryOnce(() =>
+        rpc.getTransaction(signature, { encoding: 'json', maxSupportedTransactionVersion: 1, commitment: 'confirmed' }).send(),
+      );
+    },
+  });
+}
+
 const genesis = await rpc.getGenesisHash().send();
 if (genesis !== CLUSTERS[cluster].genesis) throw new Error(`RPC_URL does not serve ${cluster} (genesis hash ${genesis})`);
 const [canary] = await getProgramDerivedAddress({ programAddress: BOUNTY_PROGRAM, seeds: [new TextEncoder().encode('canary')] });
@@ -130,30 +165,47 @@ if (!state) {
   report({ cluster, status: 'missing', canary });
 } else if (state.tripped) {
   report({ cluster, status: 'tripped', canary, balance: state.balance, baseline: state.baseline });
-} else if (state.balance < state.baseline || process.env.FORCE_CHECK === '1') {
-  // FORCE_CHECK=1 exercises the transaction path while nothing dropped: it only refreshes the baseline.
-  const drained = state.balance < state.baseline;
+} else {
+  // FORCE_CHECK=1 exercises the transaction path while nothing changed: it only refreshes the baseline.
+  const check = honeypotCheck(state, process.env.FORCE_CHECK === '1');
+  let after = state;
   let tx = '';
   let payer = '';
   let error = '';
-  try {
-    ({ signature: tx, payer } = await checkHoneypot(canary));
-  } catch (e) {
-    error = e instanceof Error ? e.message : String(e);
+  // The check goes first: reading the history takes a while, and a drop should trip the canary without waiting for it.
+  if (check) {
+    try {
+      ({ signature: tx, payer } = await checkHoneypot(canary));
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    }
+    after = await readCanary(canary);
   }
-  const after = await readCanary(canary);
+  let signedTx = '';
+  let history;
+  let historyError = '';
+  try {
+    const found = await signedHistory();
+    signedTx = found.signed ?? '';
+    history = historyNote(found);
+  } catch (e) {
+    historyError = e instanceof Error ? e.message : String(e);
+    history = `not read: ${historyError}`;
+  }
+  const status = watchStatus({ tripped: !!after?.tripped, check, signed: !!signedTx });
   report({
     cluster,
-    status: after?.tripped ? 'tripped' : drained ? 'drained' : 'alive',
+    status,
     tripped_now: !!after?.tripped,
     canary,
     balance: state.balance,
     baseline: state.baseline,
+    check: check ?? '',
     tx,
     payer,
     error,
+    signed_tx: signedTx,
+    history,
   });
-  if (error && !drained) process.exitCode = 1;
-} else {
-  report({ cluster, status: 'alive', canary, balance: state.balance, baseline: state.baseline });
+  if (failsRun({ status, error, historyError })) process.exitCode = 1;
 }
