@@ -8,7 +8,6 @@ import { QDayClock } from './components/QDayClock';
 import { SiteFooter } from './components/SiteFooter';
 import { SolanaResult } from './components/SolanaResult';
 import { StatsStrip } from './components/StatsStrip';
-import { TokenStrip } from './components/TokenStrip';
 import { Button, Card, cn, LiveTag, Section, Skeleton } from './components/ui';
 import { WalletBar } from './components/WalletBar';
 import { DEPLOYMENT, t, tOn, type Key } from './copy';
@@ -28,10 +27,11 @@ const PanelFallback = () => <div className="h-72 rounded-card border border-line
 
 type Result = { chain: 'solana'; report: SolanaReport } | { chain: 'evm'; report: EvmReport };
 
+// Jupiter's program upgrades through a program-derived address, so the first example's result is a neutral one.
 const EXAMPLES: { label: Key; value: string; chain: 'SOL' | 'EVM' }[] = [
+  { label: 'exJupiter', value: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4', chain: 'SOL' },
   { label: 'exUsdcMint', value: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', chain: 'SOL' },
   { label: 'exVitalik', value: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', chain: 'EVM' },
-  { label: 'exJupiter', value: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4', chain: 'SOL' },
 ];
 
 const NAV: { page: Page; label: Key }[] = [
@@ -435,7 +435,6 @@ export default function App() {
             </section>
 
             <StatsStrip view={canary.view} />
-            <TokenStrip />
           </>,
         )}
 

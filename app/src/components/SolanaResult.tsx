@@ -1,10 +1,12 @@
 import { t, tOn, type Key } from '../copy';
+import { RECORD } from '../data/qday';
 import { SHOWN_TOKENS, VAULT_CLUSTER } from '../lib/constants';
 import { amount, short, usd } from '../lib/format';
 import { solscan } from '../lib/links';
 import { Link, PATHS } from '../lib/router';
-import type { Authority, ControlRow, ProgramControl, SolanaReport } from '../lib/solana';
+import type { Authority, ProgramControl, SolanaReport } from '../lib/solana';
 import { AddressChip, Badge, Button, Callout, Card, ResultHeader, type Tone } from './ui';
+import { accountVerdict, authorityBadge, controlBadge, programVerdict, rowsVerdict, todayNote } from './verdict';
 import { SolanaWalletHelp } from './WalletHelp';
 
 const BODY = 'text-sm leading-6 text-fg-muted';
@@ -12,15 +14,18 @@ const EYEBROW = 'font-mono text-[11px] font-medium uppercase tracking-[0.16em] t
 /** The USD value sits under the amount on phones and beside it from sm up, so long numbers never overflow. */
 const USD = 'block text-xs text-fg-subtle sm:ml-2 sm:inline sm:text-sm';
 
-function authorityBadge(authority: Authority | undefined): [Tone, Key] {
-  if (authority === undefined) return ['muted', 'vUnknown'];
-  if (authority === null) return ['good', 'authNone'];
-  if (authority.multisig) return authority.kind === 'exposed' ? ['bad', 'authMultisigExposed'] : ['warn', 'authMultisigPda'];
-  return authority.kind === 'exposed' ? ['bad', 'authExposed'] : ['warn', 'authPda'];
-}
-
-function AuthorityRow({ label, authority, showAddress = true }: { label: Key; authority: Authority | undefined; showAddress?: boolean }) {
-  const [tone, text] = authorityBadge(authority);
+function AuthorityRow({
+  label,
+  authority,
+  badge = authorityBadge(authority),
+  showAddress = true,
+}: {
+  label: Key;
+  authority: Authority | undefined;
+  badge?: [Tone, Key];
+  showAddress?: boolean;
+}) {
+  const [tone, text] = badge;
   const multisig = authority?.multisig;
   const counts = multisig && { m: multisig.m, n: multisig.signers.length };
   return (
@@ -50,20 +55,15 @@ function SourceLine() {
   return <p className="mt-5 border-t border-line pt-3 text-[11px] text-fg-subtle">{t('srcSolana')}</p>;
 }
 
-/** Worst case among the rows that can move funds or change supply. */
-function rowsVerdict(rows: ControlRow[]): [Tone, Key] {
-  const critical = rows.filter((r) => r.critical);
-  if (critical.some((r) => r.authority?.kind === 'exposed')) return ['bad', 'vExposed'];
-  if (critical.some((r) => r.authority?.kind === 'pda')) return ['warn', 'vProgramControlled'];
-  return ['good', 'vNoAuthority'];
+/** Says that the quantum-exposed keys shown above cannot be exploited today, and what an attack would need. */
+function TodayNote({ authorities }: { authorities: (Authority | undefined)[] }) {
+  const note = todayNote(authorities);
+  return note ? <p className={`mt-3 ${BODY}`}>{t(note, { bits: RECORD.bits, target: RECORD.targetBits })}</p> : null;
 }
 
-function programVerdict(control: ProgramControl): [Tone, Key, Key] {
-  if (control === undefined) return ['muted', 'vUnknown', 'upgradeUnknown'];
-  if (control === 'closed') return ['muted', 'vClosed', 'programClosed'];
-  if (control === 'builtin') return ['good', 'vBuiltin', 'programBuiltin'];
-  if (control === null) return ['good', 'vImmutable', 'upgradeNone'];
-  return control.kind === 'exposed' ? ['bad', 'vExposed', 'upgradeExposed'] : ['warn', 'vProgramControlled', 'upgradePda'];
+/** Program and program-owned account cards read only the upgrade authority, never keys kept in program state. */
+function NotChecked() {
+  return <p className={`mt-3 ${BODY}`}>{t('notChecked')}</p>;
 }
 
 function controlAuthority(control: ProgramControl): Authority | undefined {
@@ -165,6 +165,8 @@ export function SolanaResult({ report, onScan, busy }: { report: SolanaReport; o
         <ResultHeader title="programTitle" address={report.address} href={solscan(report.address)} tone={tone} verdict={verdict} />
         {report.control !== 'closed' && report.control !== 'builtin' && <AuthorityRow label="upgradeAuthority" authority={report.control} />}
         <p className={`mt-3 ${BODY}`}>{t(body)}</p>
+        <TodayNote authorities={[controlAuthority(report.control)]} />
+        {report.control !== 'closed' && <NotChecked />}
         <SourceLine />
       </Card>
     );
@@ -179,6 +181,7 @@ export function SolanaResult({ report, onScan, busy }: { report: SolanaReport; o
         {report.rows.map((row) => (
           <AuthorityRow key={row.label} label={row.label} authority={row.authority} showAddress={row.label !== 'rowSigners'} />
         ))}
+        <TodayNote authorities={report.rows.map((r) => r.authority)} />
         {report.sol !== undefined && report.sol > 0 && <p className="mt-3 font-mono text-sm tabular-nums text-fg-muted">{amount(report.sol)} SOL</p>}
         {report.scanTarget && (
           <Button variant="primary" size="sm" disabled={busy} className="mt-4" onClick={() => onScan(report.scanTarget!)}>
@@ -191,22 +194,18 @@ export function SolanaResult({ report, onScan, busy }: { report: SolanaReport; o
   }
 
   const ownerAuthority = controlAuthority(report.ownerControl);
-  const exposed = ownerAuthority?.kind === 'exposed';
+  const [tone, verdict] = accountVerdict(report.ownerControl);
   return (
     <Card>
-      <ResultHeader
-        title="accountTitle"
-        address={report.address}
-        href={solscan(report.address)}
-        tone={exposed ? 'bad' : 'info'}
-        verdict={exposed ? 'vExposed' : 'vProgramControlled'}
-      />
+      <ResultHeader title="accountTitle" address={report.address} href={solscan(report.address)} tone={tone} verdict={verdict} />
       <p className={BODY}>{t('accountBody')}</p>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 py-2">
         <span className="text-sm text-fg-muted">{t('ownerProgram')}</span>
         <AddressChip value={report.owner} href={solscan(report.owner)} />
       </div>
-      <AuthorityRow label="ownerUpgrade" authority={ownerAuthority} />
+      <AuthorityRow label="ownerUpgrade" authority={ownerAuthority} badge={controlBadge(report.ownerControl)} />
+      <TodayNote authorities={[ownerAuthority]} />
+      <NotChecked />
       <SourceLine />
     </Card>
   );

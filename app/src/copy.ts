@@ -37,7 +37,7 @@ const copy = {
   scanning: 'Scanning…',
   scanTrust: 'Read-only. No wallet, no signature, nothing sent on-chain.',
   scanDone: 'Scan complete. Results are below.',
-  scanningCaption: 'Reading public chain data: the key, balances and who controls them…',
+  scanningCaption: 'Reading public chain data: the key, balances and on-chain authorities…',
   retry: 'Try again',
   radarCaption: 'Illustration',
   tryLabel: 'Try:',
@@ -52,12 +52,6 @@ const copy = {
 
   // stats strip
   statusStripLabel: 'Status',
-  tokenEyebrow: 'Official token',
-  tokenName: '$QANARY',
-  tokenOnly: 'This is the only official contract address; any other token using the name is not ours. Launched on pump.fun with no mint or freeze authority and fixed metadata.',
-  tokenDisclaimer: 'Not investment advice. Holding it gives no claim on Qanary or its revenue, and nobody promises anything about its price.',
-  tokenPumpFun: 'pump.fun',
-  tokenScanIt: 'Scan it',
   statCanary: 'Canary',
   statAlive: 'Alive',
   statTripped: 'Tripped',
@@ -79,7 +73,7 @@ const copy = {
   howScanTitle: 'Qanary Scan',
   howScanTag: 'See the exposure',
   howScanBody:
-    'Paste any Solana or EVM address. See whether its key is public, the value behind it, and which keys control it. No wallet needed.',
+    'Paste any Solana or EVM address. See whether its key is public and the value behind it. On Solana it also reads upgrade, mint, freeze and other token authorities, down to SPL multisig signers. Admin keys a program keeps in its own state are not read. No wallet needed.',
   howScanLink: 'Scan an address',
   howVaultTitle: 'Qanary Vault',
   howVaultTag: 'Protect the funds',
@@ -102,13 +96,14 @@ const copy = {
   qdayEyebrow: 'Evidence',
 
   // verdicts
-  vExposed: 'Exposed',
+  vExposed: 'Quantum-exposed',
   vNotSeen: 'Not seen exposed',
   vPda: 'No private key',
   vProgramControlled: 'Program-controlled',
   vNoAuthority: 'No authority left',
+  vNoCriticalAuthority: 'No supply or fund authority',
   vContract: 'Contract',
-  vImmutable: 'Immutable',
+  vImmutable: 'Code immutable',
   vClosed: 'Closed',
   vBuiltin: 'Built-in',
   vUnknown: 'Unknown',
@@ -208,16 +203,21 @@ const copy = {
   rowSigners: 'Signers',
 
   accountTitle: 'Program-owned account',
-  accountBody: 'A program owns this account. Its safety depends on who can upgrade that program.',
+  accountBody: "A program owns this account, so that program's code decides who can change or move what it holds. Below is who can upgrade that code.",
   ownerProgram: 'Owner program',
   ownerUpgrade: "Owner program's upgrade authority",
+  notChecked: 'Not checked: admin, config, pause or fee keys stored in program state. This card shows only who can upgrade the code.',
 
-  authExposed: 'Ed25519 key, exposed',
+  authExposed: 'Ed25519 key · quantum-exposed',
   authPda: 'Program-derived, check its controller',
-  authMultisigExposed: '{m}-of-{n} multisig, Ed25519 signers exposed',
+  authMultisigExposed: '{m}-of-{n} multisig · quantum-exposed signers',
   authMultisigPda: '{m}-of-{n} multisig, check its signers',
   multisigSigners: 'Any {m} of these {n} signers can act:',
   authNone: 'None',
+  todayKey:
+    'Not exploitable today: no quantum computer can derive an Ed25519 private key yet. The largest elliptic-curve key broken on one so far has {bits} bits; Ed25519 keys have {target}.',
+  todayMultisig:
+    'Not exploitable today: a quantum attacker would have to derive enough signer keys to meet the multisig threshold, and no quantum computer can derive even one Ed25519 key yet. The largest elliptic-curve key broken on one so far has {bits} bits; Ed25519 keys have {target}.',
 
   evmTitle: 'EVM address',
   evmExposedBody:
@@ -225,8 +225,9 @@ const copy = {
   evmNotSeenBody:
     'No outgoing transaction on the chains checked here. If this key has ever signed anything else (a transaction on another chain, a multisig approval, a permit or a login), its public key is already exposed.',
   evmUnknownBody: 'Some chains could not be reached, so exposure could not be ruled out. Try again in a moment.',
-  evmContractBody: 'This is a contract. No private key sits behind it; its admin keys are what to check.',
-  evmNativeNote: 'Only native balances are shown. ERC-20 tokens behind the same key share the same exposure.',
+  evmContractBody:
+    'This is a contract. No private key sits behind it; its owner or admin keys decide what it can do, and this basic check does not read them.',
+  evmNativeNote: 'Basic check: native balance, nonce and code only. ERC-20 tokens behind the same key share the same exposure.',
   colChain: 'Chain',
   colNonce: 'Nonce',
   colBalance: 'Balance',
@@ -461,7 +462,7 @@ const copy = {
   tierScanTitle: 'Qanary Scan',
   tierScanFor: 'For everyone',
   tierScanBody:
-    'Any Solana or EVM address: is its key public and what sits behind it, plus which keys control Solana programs, mints and accounts. No wallet, no sign-up.',
+    'Any Solana or EVM address: is its key public and what sits behind it. On Solana, also the upgrade, mint, freeze, permanent-delegate and other token-extension authorities, down to SPL multisig signers. Admin keys in program state are not read. No wallet, no sign-up.',
   tierScanPrice: 'Free',
   tierBountyTitle: 'Qanary Bounty on mainnet',
   tierBountyFor: 'For every Solana program',
@@ -482,7 +483,7 @@ const copy = {
   tierApiBody:
     "The scan engine as an API. Warn users about an exposed key before they deposit, and check a token's mint, freeze and permanent-delegate keys before listing it.",
   tierApiPrice: 'Usage-based, with a free tier',
-  tierWatchTitle: 'Qanary Watchtower',
+  tierWatchTitle: 'Qanary Watch',
   tierWatchFor: 'For teams, funds and power users',
   tierWatchBody:
     'Continuous monitoring of your addresses, programs and mints. Alerts when an upgrade or mint authority changes hands, a new exposed key takes control, or value piles up behind a single key.',
@@ -543,6 +544,9 @@ const copy = {
   telegram: 'Qanary on Telegram',
   tokenFooterTitle: 'Token · mainnet',
   tokenLabel: 'Official token ($QANARY)',
+  tokenOnly:
+    'This is the only official contract address; any other token using the name is not ours. It has no mint or freeze authority and fixed metadata.',
+  tokenDisclaimer: 'Not investment advice. Holding it gives no claim on Qanary or its revenue, and nobody promises anything about its price.',
   footerBar: 'Unaudited research code · devnet only · never send real funds',
   footerBarMainnet: 'Unaudited research code · mainnet · use only amounts you can afford to lose',
   footerBarSplit: 'Unaudited research code · {mainnet} on mainnet · {devnet} on devnet only · use only amounts you can afford to lose',
