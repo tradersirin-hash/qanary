@@ -17,7 +17,7 @@ import type { EvmReport } from './lib/evm';
 import { SITE_URL } from './lib/links';
 import { Link, parseRoute, PATHS, useRoute, type Page, type Route } from './lib/router';
 import { countScan } from './lib/scanCount';
-import { addressFromUrl, urlWithAddress } from './lib/scanLink';
+import { addressFromUrl, addressOnHashChange, urlWithAddress } from './lib/scanLink';
 import type { SolanaReport } from './lib/solana';
 import { knownCanary, useCanary } from './lib/useCanary';
 import { useWallet } from './lib/useWallet';
@@ -251,6 +251,18 @@ export default function App() {
     if (initial && parseRoute(window.location.pathname) === 'home') void scan(initial);
   }, [scan]);
 
+  // A scan link pasted into a tab that already shows the scanner changes only the fragment: no page load, so scan here.
+  // writeQuery uses replaceState, which fires no hashchange, so this cannot loop.
+  useEffect(() => {
+    const onHashChange = () => {
+      if (parseRoute(window.location.pathname) !== 'home') return;
+      const next = addressOnHashChange(window.location.search, window.location.hash, lastScanned.current);
+      if (next) void scan(next);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, [scan]);
+
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     void scan(input);
@@ -258,7 +270,7 @@ export default function App() {
 
   const copyLink = async () => {
     try {
-      // Built from the scanned address, not the address bar: a click on the skip link replaces the fragment.
+      // Built from the scanned address, not the address bar, whose fragment can be edited by hand after a scan.
       const { origin, pathname, search } = window.location;
       await navigator.clipboard.writeText(origin + urlWithAddress(pathname, search, lastScanned.current));
       setCopyState('copied');

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { normalizedUrl } from './router';
-import { addressFromUrl, addressHash, hasAddress, urlWithAddress } from './scanLink';
+import { addressFromUrl, addressHash, addressOnHashChange, hasAddress, urlWithAddress } from './scanLink';
 
 const SOL = 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4';
 const EVM = '0x0000000000000000000000000000000000000001';
@@ -40,6 +40,17 @@ describe('scan links keep the address in the fragment', () => {
     expect(hasAddress('#main')).toBe(false);
     expect(hasAddress('#vault')).toBe(false);
     expect(hasAddress('')).toBe(false);
+    expect(hasAddress('#a=')).toBe(false);
+    expect(hasAddress('#a')).toBe(false);
+  });
+
+  it('scans on a fragment change only when it brings a new address', () => {
+    expect(addressOnHashChange('', `#a=${SOL}`, '')).toBe(SOL);
+    expect(addressOnHashChange('', `#a=${EVM}`, SOL)).toBe(EVM);
+    expect(addressOnHashChange('', `#a=${SOL}`, SOL)).toBe('');
+    expect(addressOnHashChange('', '#main', SOL)).toBe('');
+    expect(addressOnHashChange('', '', SOL)).toBe('');
+    expect(addressOnHashChange('', '#a=', SOL)).toBe('');
   });
 });
 
@@ -52,6 +63,11 @@ describe('normalizedUrl', () => {
 
   it('keeps a fragment address over an older ?a=', () => {
     expect(normalizedUrl('/', `?a=${EVM}`, `#a=${SOL}`)).toBe(`/#a=${SOL}`);
+  });
+
+  it('treats an empty fragment a= as no address, so an older ?a= still moves in', () => {
+    expect(normalizedUrl('/', `?a=${SOL}`, '#a=')).toBe(`/#a=${SOL}`);
+    expect(normalizedUrl('/', `?a=${SOL}`, '#a')).toBe(`/#a=${SOL}`);
   });
 
   it('leaves a current scan link as it is', () => {
