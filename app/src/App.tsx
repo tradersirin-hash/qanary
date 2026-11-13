@@ -16,6 +16,7 @@ import { detectAddress } from './lib/detect';
 import type { EvmReport } from './lib/evm';
 import { SITE_URL } from './lib/links';
 import { Link, parseRoute, PATHS, useRoute, type Page, type Route } from './lib/router';
+import { countScan } from './lib/scanCount';
 import type { SolanaReport } from './lib/solana';
 import { knownCanary, useCanary } from './lib/useCanary';
 import { useWallet } from './lib/useWallet';
@@ -231,7 +232,10 @@ export default function App() {
         detected.chain === 'solana'
           ? { chain: 'solana', report: await (await import('./lib/solana')).scanSolana(detected.value) }
           : { chain: 'evm', report: await (await import('./lib/evm')).scanEvm(detected.value) };
-      if (id === latestScan.current) setResult(next);
+      if (id === latestScan.current) {
+        setResult(next);
+        countScan();
+      }
     } catch {
       if (id === latestScan.current) setError('networkError');
     } finally {
