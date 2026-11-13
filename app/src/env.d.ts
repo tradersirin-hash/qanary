@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 interface ImportMetaEnv {
   /** Optional Solana mainnet RPC (e.g. a Helius key) for the Scan, and for the Vault or Bounty on mainnet. Defaults to a public mainnet RPC. */
   readonly VITE_SOLANA_RPC?: string;
