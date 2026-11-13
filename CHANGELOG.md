@@ -13,6 +13,7 @@ On mainnet-prep; ships as 1.1.0 when merged into main (planned 2026-12-06 to 12-
 - A strict Content-Security-Policy and security headers: scripts load only from the site, network requests go only to the listed RPC and price hosts (Helius RPC hosts included), and framing is denied. (3a36911, 0730a53)
 - Vault keys are derived per cluster, so one recovery phrase never signs with the same one-time key on two clusters. Devnet vaults still open from the same phrase. (ab88ef4)
 - The one-time-key record that every tab shares is read before the copy in this page's memory, so a failed storage write cannot lead to a key signing two requests. (1c65e33)
+- Vite 8.3.5 and source-map-js 1.2.2 fix high-severity advisories in the build tools, which the site never shipped, and CI now also fails on a high-severity advisory anywhere in the npm tree. (603bfa0)
 
 ### Added
 
@@ -26,12 +27,16 @@ On mainnet-prep; ships as 1.1.0 when merged into main (planned 2026-12-06 to 12-
 - CI checks Rust formatting, clippy and npm advisories. (7fe2d65, d517968, e212d4b)
 - Tests pin the canary and vault account layouts and every signed vault message; initialization-order tests for the canary. (bcea601, 8357ad8, 189e0e3)
 - A canary incident runbook linked from every watchdog alert. A different alert status opens its own issue, and the watchdog alerts when it cannot read the canary key's whole recent history. (5ad86ec, 306dbb3)
+- Each completed scan adds one to a daily total through `/api/scan-count`: an empty request with no address, cookie or Referer. Counting stays off until a counter database is connected. (148c9fa)
 
 ### Changed
 
 - Scan says what it reads, and an exposed key is "Quantum-exposed" and not exploitable today. A multisig that one key can use shows red, like a lone key. (5047932, 74e0243)
 - The planned monitoring tier is now called Qanary Watch. (d012044)
 - The homepage no longer has the token band; the mint address and disclaimer stay in the footer. (628d50b)
+- The homepage asks who can change the tokens and programs you rely on. Its examples are neutral: the Jupiter program, the wrapped SOL mint and the SPL Token program. EVM addresses still get a basic key check. (4b534b6)
+- The README and the page descriptions say what Qanary shows: who can change the programs and tokens you rely on, how strong that control is, and which of those keys a future quantum computer could break. (fb1b2ae)
+- The Roadmap lists Qanary Watch as a free beta on Telegram, for programs and tokens a team depends on but does not run, instead of a monthly subscription. (ea9713f)
 
 ### Fixed
 
@@ -49,4 +54,4 @@ What qanary.xyz serves during the hackathon judging (main).
 - The Vault on devnet.
 - The Bounty canary on devnet, and the watchdog.
 - The November 2026 readiness census (aggregates).
-- The hotfixes on main during judging: security headers with a report-only CSP (637871c), the watchdog baseline ratchet and signature watch (73f25f5), the Qanary Watch rename and prior art (adfaa20, 8ffc2e6), and keeping the site build identical (2945a73).
+- The hotfixes on main during judging: security headers with a report-only CSP (637871c), the watchdog baseline ratchet and signature watch (73f25f5), the Qanary Watch rename and prior art (adfaa20, 8ffc2e6), keeping the site build identical (2945a73), the canary runbook linked from every watchdog alert (e056b6b), and the hash of the census's private per-address output (b1f1044). Tagged `v1.0.0` at b1f1044.
