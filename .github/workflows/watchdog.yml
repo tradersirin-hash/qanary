@@ -2,9 +2,10 @@ name: Canary watchdog
 
 # Scheduled twice an hour: read the devnet canary and honeypot. If the honeypot dropped below its baseline, trip the
 # canary on-chain (check_honeypot is permissionless) and open an issue; if it holds more, raise the baseline the same
-# way. Also open an issue if the canary key signed any recent transaction. GitHub delays and drops scheduled runs, so in
-# practice it runs a few times a day (3 to 5 in late October 2026). It runs scheduled workflows only from the default
-# branch, and pauses them after 60 days without commits; "Run workflow" starts one by hand,
+# way. Also open an issue if the canary key signed any recent transaction. Each issue links docs/canary-runbook.md as
+# of the commit the run used. GitHub delays and drops scheduled runs, so in practice it runs a few times a day (3 to 5
+# in late October 2026). It runs scheduled workflows only from the default branch, and pauses them after 60 days
+# without commits; "Run workflow" starts one by hand,
 # and its "force check" box sends check_honeypot even when nothing dropped, to test the fee-payer key.
 on:
   schedule:
@@ -63,6 +64,8 @@ jobs:
           SIGNED_TX: ${{ steps.check.outputs.signed_tx }}
           HISTORY: ${{ steps.check.outputs.history }}
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # Pinned to the commit this run used, so the steps match the watchdog that opened the issue.
+          RUNBOOK: ${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/docs/canary-runbook.md
         run: |
           gh label create canary --color FFD23F --description "Canary watchdog alerts" --force
           if [ "$(gh issue list --label canary --state open --json number --jq length)" != "0" ]; then
@@ -75,6 +78,6 @@ jobs:
             signed) summary="The devnet canary key signed transaction $SIGNED_TX, so someone can sign with it: treat Ed25519 keys as broken. The honeypot is not below its baseline, so check_honeypot cannot trip the canary, and the program cannot take a signature as proof yet: the on-chain flag stays untripped." ;;
             *) summary="The canary account could not be read (status: $STATUS)." ;;
           esac
-          body=$(printf '%s\n\n- Canary: %s\n- Honeypot: %s lamports (baseline %s)\n- Watchdog transaction: %s\n- Signed by the canary key: %s (%s)\n- Run: %s\n' \
-            "$summary" "$CANARY" "$BALANCE" "$BASELINE" "${TX:-none}" "${SIGNED_TX:-none found}" "${HISTORY:-history not read}" "$RUN")
+          body=$(printf '%s\n\n- Canary: %s\n- Honeypot: %s lamports (baseline %s)\n- Watchdog transaction: %s\n- Signed by the canary key: %s (%s)\n- Run: %s\n- Runbook: %s\n' \
+            "$summary" "$CANARY" "$BALANCE" "$BASELINE" "${TX:-none}" "${SIGNED_TX:-none found}" "${HISTORY:-history not read}" "$RUN" "$RUNBOOK")
           gh issue create --label canary --title "Canary watchdog: $STATUS" --body "$body"

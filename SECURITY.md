@@ -14,7 +14,7 @@ Please report privately. Do not open a public issue or pull request, and do not 
 | Qanary Vault program (`DoYraMDno33DYCUytDMvdGWWcsNz1Qm983K15pHnzaqu`) | `onchain/programs/qanary_vault` |
 | Qanary Bounty program, the quantum canary (`HhrtGaEUk6Tar4cdCHkgTZj7jY5YXha4wjfdm8EteXRV`) | `onchain/programs/qanary_bounty` |
 | Web app at https://qanary.xyz, including the recovery phrase, LM-OTS key derivation and signing, and Scan | `app/` |
-| Canary watchdog, the scheduled workflow that trips the canary when the honeypot drops | `.github/workflows/watchdog.yml` and its script in `app/` |
+| Canary watchdog, the scheduled workflow that trips the canary when the honeypot drops; its alerts are handled by the [canary runbook](docs/canary-runbook.md) | `.github/workflows/watchdog.yml` and its script in `app/` |
 
 The program ids are the same on every cluster. Out of scope: third-party RPC providers, wallets and Solana itself (report those to their maintainers), and denial of service through spam or rate limits.
 
