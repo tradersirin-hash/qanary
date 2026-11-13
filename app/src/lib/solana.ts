@@ -47,7 +47,7 @@ export type Multisig = { m: number; signers: { address: Address; kind: KeyKind }
 /** null means "no authority" (revoked, unset or burned). For a multisig, `kind` is 'exposed' when
  *  at least `m` of its signers are Ed25519 keys. */
 export type Authority = { address: Address; kind: KeyKind; multisig?: Multisig } | null;
-/** Who can change a program: an authority, null (immutable), closed, built-in, or undefined (unknown). */
+/** Who can change a program: an authority, null (no upgrade authority), closed, built-in, or undefined (unknown). */
 export type ProgramControl = Authority | 'closed' | 'builtin' | undefined;
 
 export type ControlRow = { label: Key; authority: Authority; critical: boolean };

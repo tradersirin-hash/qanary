@@ -104,7 +104,7 @@ const copy = {
   vNoAuthority: 'No authority left',
   vNoCriticalAuthority: 'No supply or fund authority',
   vContract: 'Contract',
-  vImmutable: 'Code immutable',
+  vImmutable: 'No upgrade key',
   vClosed: 'Closed',
   vBuiltin: 'Built-in',
   vUnknown: 'Unknown',
