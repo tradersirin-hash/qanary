@@ -136,8 +136,10 @@ jobs:
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo clippy --locked -p qanary_bounty --all-targets -- -D warnings
 
-  # Known advisories in the packages the site ships (dependencies, not devDependencies). Reads app/package-lock.json
-  # only and installs nothing. Its own job, so a newly published advisory shows here without failing the build.
+  # Known advisories: moderate and above in the packages the site ships (dependencies), and high and above in the whole
+  # tree, the build and test tools included, since they run on developer machines and in CI. Reads
+  # app/package-lock.json only and installs nothing. Its own job, so a newly published advisory shows here without
+  # failing the build.
   npm-audit:
     runs-on: ubuntu-24.04
     defaults:
@@ -151,3 +153,4 @@ jobs:
         with:
           node-version: 22
       - run: npm audit --package-lock-only --omit=dev --audit-level=moderate
+      - run: npm audit --package-lock-only --audit-level=high
