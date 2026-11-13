@@ -4,8 +4,10 @@
 // read (in the Upstash console). Anyone can send the request, so read the total as approximate.
 //
 // Counting is off until the database is connected: set KV_REST_API_URL and KV_REST_API_TOKEN (the names Vercel's
-// Upstash integration sets), or UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN. Until then, and whenever the
-// database cannot be reached, the function still answers 204, so the site never waits on it or sees an error.
+// Upstash integration sets), or UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN, for the Production environment
+// only: preview deployments are production builds too, and would add to the same total. Until then, and whenever the
+// database cannot be reached, the function still answers 204, so the site never waits on it or sees an error; a
+// refused or failed count is logged (status only, never the token).
 
 type Env = Record<string, string | undefined>;
 
@@ -21,18 +23,22 @@ export function counterConfig(env: Env): { url: string; token: string } | null {
   return url && token ? { url: url.replace(/\/+$/, ''), token } : null;
 }
 
-/** Counts one scan. The request itself is not read: its body, headers and address play no part. */
+/** Counts one scan. The request itself is not read: its body, headers and address play no part. The command goes to
+ *  Upstash's REST root as a JSON array, the documented form for any command. */
 export async function handleScanCount(env: Env, send: typeof fetch = fetch, now: Date = new Date()): Promise<Response> {
   const config = counterConfig(env);
   if (config) {
     try {
-      await send(`${config.url}/incr/${dayKey(now)}`, {
+      const reply = await send(config.url, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${config.token}` },
+        headers: { Authorization: `Bearer ${config.token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(['INCR', dayKey(now)]),
         signal: AbortSignal.timeout(3000),
       });
-    } catch {
+      if (!reply.ok) console.error(`scan count refused: HTTP ${reply.status}`);
+    } catch (e) {
       // A lost count is acceptable; an error page is not.
+      console.error(`scan count failed: ${e instanceof Error ? e.name : 'error'}`);
     }
   }
   return new Response(null, { status: 204, headers: { 'Cache-Control': 'no-store' } });

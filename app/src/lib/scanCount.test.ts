@@ -68,28 +68,52 @@ describe('api/scan-count (the function)', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it("adds one to today's key with the token", async () => {
+  it("sends INCR of today's key to the REST root with the token", async () => {
     const send = vi.fn(() => Promise.resolve(new Response('{"result":1}')));
     const response = await handleScanCount(
-      { KV_REST_API_URL: 'https://db.example', KV_REST_API_TOKEN: 'secret' },
+      { KV_REST_API_URL: 'https://db.example/', KV_REST_API_TOKEN: 'secret' },
       send as unknown as typeof fetch,
       now,
     );
     expect(response.status).toBe(204);
     expect(send).toHaveBeenCalledTimes(1);
     const [url, init] = send.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe('https://db.example/incr/scans:2026-11-13');
+    expect(url).toBe('https://db.example');
     expect(init.method).toBe('POST');
-    expect(init.headers).toEqual({ Authorization: 'Bearer secret' });
+    expect(init.headers).toEqual({ Authorization: 'Bearer secret', 'Content-Type': 'application/json' });
+    expect(JSON.parse(String(init.body))).toEqual(['INCR', 'scans:2026-11-13']);
+  });
+
+  it('still answers 204, and logs the status but never the token, when the database refuses the count', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const send = vi.fn(() => Promise.resolve(new Response('{"error":"WRONGPASS"}', { status: 401 })));
+      const response = await handleScanCount(
+        { KV_REST_API_URL: 'https://db.example', KV_REST_API_TOKEN: 'secret-token' },
+        send as unknown as typeof fetch,
+        now,
+      );
+      expect(response.status).toBe(204);
+      expect(error).toHaveBeenCalledWith('scan count refused: HTTP 401');
+      expect(JSON.stringify(error.mock.calls)).not.toContain('secret-token');
+    } finally {
+      error.mockRestore();
+    }
   });
 
   it('still answers 204 when the database cannot be reached', async () => {
-    const send = vi.fn(() => Promise.reject(new Error('down')));
-    const response = await handleScanCount(
-      { UPSTASH_REDIS_REST_URL: 'https://u.example', UPSTASH_REDIS_REST_TOKEN: 'u' },
-      send as unknown as typeof fetch,
-      now,
-    );
-    expect(response.status).toBe(204);
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const send = vi.fn(() => Promise.reject(new Error('down at https://u.example?token=u')));
+      const response = await handleScanCount(
+        { UPSTASH_REDIS_REST_URL: 'https://u.example', UPSTASH_REDIS_REST_TOKEN: 'u' },
+        send as unknown as typeof fetch,
+        now,
+      );
+      expect(response.status).toBe(204);
+      expect(error).toHaveBeenCalledWith('scan count failed: Error');
+    } finally {
+      error.mockRestore();
+    }
   });
 });
