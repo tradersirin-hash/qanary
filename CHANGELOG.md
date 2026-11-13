@@ -10,11 +10,11 @@ On mainnet-prep; ships as 1.1.0 when merged into main (planned 2026-12-06 to 12-
 
 - One-time keys are guarded across tabs and devices. Signing holds a lock shared by the site's tabs, and before every signature the app reads the vault's on-chain history back to the current key: a different request already signed elsewhere is refused, nothing is signed when that history cannot be read in full, and re-sending a create that already landed opens the existing vault. (6687af0, db29f4f, 8179a0d)
 - A post-quantum request whose signature verifies always consumes its one-time key; a request that can no longer run is skipped with a reason code. (f735fa8)
-- A strict Content-Security-Policy and security headers: scripts load only from the site, network requests go only to the listed RPC and price hosts (Helius RPC hosts included), and framing is denied. (3a36911, 0730a53)
+- A strict Content-Security-Policy and security headers: scripts load only from the site, network requests go only to the site itself and the listed RPC and price hosts (Helius RPC hosts included), and framing is denied. (3a36911, 0730a53)
 - Vault keys are derived per cluster, so one recovery phrase never signs with the same one-time key on two clusters. Devnet vaults still open from the same phrase. (ab88ef4)
 - The one-time-key record that every tab shares is read before the copy in this page's memory, so a failed storage write cannot lead to a key signing two requests. (1c65e33)
 - Vite 8.3.5 and source-map-js 1.2.2 fix high-severity advisories in the build tools, which the site never shipped, and CI now also fails on a high-severity advisory anywhere in the npm tree. (603bfa0)
-- A scan link keeps the address in its fragment (`#a=`), which browsers never send to the site, so opening a shared link no longer tells qanary.xyz which address it is. Older `?a=` links still open, and the page moves the address into the fragment. (4c8e8a2)
+- A scan link keeps the address in its fragment (`#a=`), which browsers never send to the site, so opening a shared link no longer tells qanary.xyz which address it is. Older `?a=` links still open, and the page moves the address into the fragment. The site's Referrer-Policy is now `strict-origin`, so the page's own requests never repeat a link's query, and a scan link pasted into a tab that already shows the scanner runs its scan. (4c8e8a2, eb1e414)
 
 ### Added
 
@@ -27,8 +27,8 @@ On mainnet-prep; ships as 1.1.0 when merged into main (planned 2026-12-06 to 12-
 - CI builds both programs for SBF from the committed Cargo.lock and runs every Rust test, the LiteSVM suites included. It fails when the test count the site states is out of date or the CSP does not allow a configured RPC host. (51e2180, f8fb1c0, 69a196c, ea813cb)
 - CI checks Rust formatting, clippy and npm advisories. (7fe2d65, d517968, e212d4b)
 - Tests pin the canary and vault account layouts and every signed vault message; initialization-order tests for the canary. (bcea601, 8357ad8, 189e0e3)
-- A canary incident runbook linked from every watchdog alert. A different alert status opens its own issue, and the watchdog alerts when it cannot read the canary key's whole recent history. (5ad86ec, 306dbb3)
-- Each completed scan adds one to a daily total through `/api/scan-count`: an empty request with no address, cookie or Referer. Counting stays off until a counter database is connected, and a refused count is logged without the token. (148c9fa, bc1dadc)
+- The canary runbook covers the mainnet job too. A different alert status opens its own issue, and the watchdog alerts (`history_gap`) when it cannot read the canary key's whole recent history. (5ad86ec, 306dbb3)
+- Each completed scan adds one to a daily total through `/api/scan-count`: an empty request with no scanned address, cookie or Referer (Vercel's request logs still see its time, IP address and browser, as for any request). Counting stays off until a counter database is connected, and a refused count is logged without the token. (148c9fa, bc1dadc, 428afd3)
 
 ### Changed
 
@@ -37,7 +37,7 @@ On mainnet-prep; ships as 1.1.0 when merged into main (planned 2026-12-06 to 12-
 - The homepage no longer has the token band; the mint address and disclaimer stay in the footer. (628d50b)
 - The homepage asks who can change the tokens and programs you rely on. Its examples are neutral: the Jupiter program, the wrapped SOL mint and the Associated Token Account program. EVM addresses still get a basic key check. (4b534b6, 676064d)
 - The README and the page descriptions say what Qanary shows: who can change the programs and tokens you rely on (one key, a multisig or a program), and which of those keys a future quantum computer could break. (fb1b2ae, 676064d)
-- A program with no upgrade authority reads "no key can upgrade the code" instead of "the code can no longer be changed": a feature gate can still replace a program, as it did the SPL Token program. (676064d)
+- A program with no upgrade authority shows "No upgrade key" and "no key can upgrade the code" instead of "Code immutable" and "the code can no longer be changed": a feature gate can still replace a program, as it did the SPL Token program. (676064d, eb58037)
 - The Roadmap lists Qanary Watch as a free beta on Telegram, for programs and tokens a team depends on but does not run, instead of a monthly subscription. (ea9713f)
 
 ### Fixed
