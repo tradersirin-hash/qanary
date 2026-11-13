@@ -17,6 +17,7 @@ import type { EvmReport } from './lib/evm';
 import { SITE_URL } from './lib/links';
 import { Link, parseRoute, PATHS, useRoute, type Page, type Route } from './lib/router';
 import { countScan } from './lib/scanCount';
+import { addressFromUrl, urlWithAddress } from './lib/scanLink';
 import type { SolanaReport } from './lib/solana';
 import { knownCanary, useCanary } from './lib/useCanary';
 import { useWallet } from './lib/useWallet';
@@ -56,16 +57,15 @@ const PAGE_META: Record<Route, { heading: string; title: Key }> = {
   notFound: { heading: 'notfound-title', title: 'notFoundTitle' },
 };
 
+/** The scanned address in the page's URL (#a=, or an older link's ?a=). */
 function readQuery(): string {
-  return new URLSearchParams(window.location.search).get('a') ?? '';
+  return addressFromUrl(window.location.search, window.location.hash);
 }
 
+/** Puts `value` into the URL's fragment (#a=), which the browser never sends to a server; '' removes it. */
 function writeQuery(value: string) {
-  const url = new URL(window.location.href);
-  if (value) url.searchParams.set('a', value);
-  else url.searchParams.delete('a');
-  url.hash = '';
-  window.history.replaceState(null, '', url);
+  const { pathname, search } = window.location;
+  window.history.replaceState(null, '', urlWithAddress(pathname, search, value));
 }
 
 /** Sets (creating if needed) a <link> or <meta> in <head>; the static HTML carries none of these per-page tags. */
@@ -164,7 +164,7 @@ function NotFound() {
 
 export default function App() {
   const route = useRoute();
-  // A shared scan link (?a=) belongs to the scanner page only.
+  // A shared scan link (#a=) belongs to the scanner page only.
   const [input, setInput] = useState(() => (route === 'home' ? readQuery() : ''));
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<Key | null>(null);
@@ -172,7 +172,7 @@ export default function App() {
   const [copyState, setCopyState] = useState<Key | null>(null);
   // Only the latest scan may update the page; a slower earlier scan must not overwrite it.
   const latestScan = useRef(0);
-  // The last scanned address, put back into the URL (?a=) whenever the scanner page is shown again.
+  // The last scanned address, put back into the URL (#a=) whenever the scanner page is shown again.
   const lastScanned = useRef('');
   const wallet = useWallet();
   const canary = useCanary(CANARY_PAGES.has(route));
@@ -246,7 +246,7 @@ export default function App() {
 
   useEffect(() => {
     const initial = readQuery();
-    // Shared scan links (?a=) only apply to the scanner page.
+    // Shared scan links (#a=, or an older link's ?a=) only apply to the scanner page.
     if (initial && parseRoute(window.location.pathname) === 'home') void scan(initial);
   }, [scan]);
 
@@ -257,8 +257,9 @@ export default function App() {
 
   const copyLink = async () => {
     try {
+      // Built from the scanned address, not the address bar: a click on the skip link replaces the fragment.
       const { origin, pathname, search } = window.location;
-      await navigator.clipboard.writeText(origin + pathname + search);
+      await navigator.clipboard.writeText(origin + urlWithAddress(pathname, search, lastScanned.current));
       setCopyState('copied');
     } catch {
       // No Clipboard API (insecure origin, in-app webview) or permission denied.

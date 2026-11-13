@@ -1,4 +1,5 @@
 import { useSyncExternalStore, type ComponentProps } from 'react';
+import { addressHash, hasAddress } from './scanLink';
 
 /** Every page has its own path. app/vercel.json rewrites these paths to index.html so they also load directly. */
 export const PATHS = {
@@ -21,10 +22,9 @@ export function parseRoute(pathname: string): Route {
 // Links from the old one-page site pointed at sections: /#vault and so on.
 const LEGACY_HASH: Record<string, Page> = { '#scan': 'home', '#how': 'how', '#vault': 'vault', '#bounty': 'bounty', '#qday': 'qday' };
 
-/** Runs once before the first render: rewrites old section links, /index.html, trailing slashes and odd casing to the
- *  page's own path, and drops the scanner's ?a= from other pages. */
-export function normalizeInitialUrl() {
-  const { pathname, search, hash } = window.location;
+/** The URL a page load settles on: old section links, /index.html, trailing slashes and odd casing become the page's
+ *  own path; an older scan link's ?a= moves into the fragment (#a=), and other pages drop the scanned address. */
+export function normalizedUrl(pathname: string, search: string, hash: string): string {
   let route = parseRoute(pathname);
   let nextHash = hash;
   if (route === 'home' && LEGACY_HASH[hash]) {
@@ -32,9 +32,21 @@ export function normalizeInitialUrl() {
     nextHash = '';
   }
   const params = new URLSearchParams(search);
-  if (route !== 'home') params.delete('a');
+  const legacy = params.get('a');
+  params.delete('a');
+  if (route !== 'home') {
+    if (hasAddress(nextHash)) nextHash = '';
+  } else if (legacy && !hasAddress(nextHash)) {
+    nextHash = addressHash(legacy);
+  }
   const query = params.toString();
-  const next = (route === 'notFound' ? pathname : PATHS[route]) + (query ? `?${query}` : '') + nextHash;
+  return (route === 'notFound' ? pathname : PATHS[route]) + (query ? `?${query}` : '') + nextHash;
+}
+
+/** Runs once before the first render, so the address bar shows the normalized URL. */
+export function normalizeInitialUrl() {
+  const { pathname, search, hash } = window.location;
+  const next = normalizedUrl(pathname, search, hash);
   if (next !== pathname + search + hash) window.history.replaceState(null, '', next);
 }
 
@@ -58,7 +70,7 @@ export function useRoute(): Route {
 export function navigate(to: string) {
   // The link to the page already shown: no new history entry, just back to its top.
   if (parseRoute(to) === parseRoute(window.location.pathname)) {
-    if (to !== window.location.pathname) window.history.replaceState(null, '', to + window.location.search);
+    if (to !== window.location.pathname) window.history.replaceState(null, '', to + window.location.search + window.location.hash);
     window.scrollTo({ top: 0, behavior: 'instant' });
     return;
   }
