@@ -28,11 +28,12 @@ const PanelFallback = () => <div className="h-72 rounded-card border border-line
 
 type Result = { chain: 'solana'; report: SolanaReport } | { chain: 'evm'; report: EvmReport };
 
-// Jupiter's program upgrades through a program-derived address, so the first example's result is a neutral one.
+// Neutral examples, one of each kind: a program upgraded through a program-derived address, the wrapped SOL mint
+// (no mint or freeze authority) and the SPL Token program (an older loader with no upgrade path).
 const EXAMPLES: { label: Key; value: string; chain: 'SOL' | 'EVM' }[] = [
   { label: 'exJupiter', value: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4', chain: 'SOL' },
-  { label: 'exUsdcMint', value: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', chain: 'SOL' },
-  { label: 'exVitalik', value: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045', chain: 'EVM' },
+  { label: 'exWsolMint', value: 'So11111111111111111111111111111111111111112', chain: 'SOL' },
+  { label: 'exTokenProgram', value: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', chain: 'SOL' },
 ];
 
 const NAV: { page: Page; label: Key }[] = [
@@ -392,6 +393,7 @@ export default function App() {
                         {t(ex.label)}
                       </button>
                     ))}
+                    <span>{t('evmHint')}</span>
                   </div>
 
                   <p className="mt-3 flex items-center gap-1.5 text-xs text-fg-subtle">
