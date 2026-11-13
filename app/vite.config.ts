@@ -11,8 +11,8 @@ function descriptions(canary: Cluster, vault: Cluster): Record<string, string> {
   const allOn = canary === vault ? ` on ${canary}` : '';
   const sol = vault === 'devnet' ? 'devnet SOL' : 'SOL';
   return {
-    '%QANARY_DESCRIPTION%': `Scan any Solana or EVM address for quantum exposure, hold ${sol} behind LM-OTS post-quantum signatures, and watch an on-chain canary bounty${canaryOn}. Unaudited research${allOn}.`,
-    '%QANARY_TWITTER_DESCRIPTION%': `Quantum-exposure scanner, post-quantum ${vault} vault and on-chain canary${canaryOn} for Solana. Unaudited research${allOn}.`,
+    '%QANARY_DESCRIPTION%': `Qanary shows who can change the Solana programs and tokens you rely on, how strong that control is, and which of those keys a future quantum computer could break. It also holds ${sol} behind LM-OTS post-quantum signatures and runs an on-chain canary bounty${canaryOn}. Unaudited research${allOn}.`,
+    '%QANARY_TWITTER_DESCRIPTION%': `Who can change the Solana programs and tokens you rely on, and which of those keys a quantum computer could break. Plus a post-quantum ${vault} vault and an on-chain canary${canaryOn}. Unaudited research${allOn}.`,
   };
 }
 
