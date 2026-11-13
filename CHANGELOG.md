@@ -14,6 +14,7 @@ On mainnet-prep; ships as 1.1.0 when merged into main (planned 2026-12-06 to 12-
 - Vault keys are derived per cluster, so one recovery phrase never signs with the same one-time key on two clusters. Devnet vaults still open from the same phrase. (ab88ef4)
 - The one-time-key record that every tab shares is read before the copy in this page's memory, so a failed storage write cannot lead to a key signing two requests. (1c65e33)
 - Vite 8.3.5 and source-map-js 1.2.2 fix high-severity advisories in the build tools, which the site never shipped, and CI now also fails on a high-severity advisory anywhere in the npm tree. (603bfa0)
+- A scan link keeps the address in its fragment (`#a=`), which browsers never send to the site, so opening a shared link no longer tells qanary.xyz which address it is. Older `?a=` links still open, and the page moves the address into the fragment. (4c8e8a2)
 
 ### Added
 
@@ -27,15 +28,16 @@ On mainnet-prep; ships as 1.1.0 when merged into main (planned 2026-12-06 to 12-
 - CI checks Rust formatting, clippy and npm advisories. (7fe2d65, d517968, e212d4b)
 - Tests pin the canary and vault account layouts and every signed vault message; initialization-order tests for the canary. (bcea601, 8357ad8, 189e0e3)
 - A canary incident runbook linked from every watchdog alert. A different alert status opens its own issue, and the watchdog alerts when it cannot read the canary key's whole recent history. (5ad86ec, 306dbb3)
-- Each completed scan adds one to a daily total through `/api/scan-count`: an empty request with no address, cookie or Referer. Counting stays off until a counter database is connected. (148c9fa)
+- Each completed scan adds one to a daily total through `/api/scan-count`: an empty request with no address, cookie or Referer. Counting stays off until a counter database is connected, and a refused count is logged without the token. (148c9fa, bc1dadc)
 
 ### Changed
 
 - Scan says what it reads, and an exposed key is "Quantum-exposed" and not exploitable today. A multisig that one key can use shows red, like a lone key. (5047932, 74e0243)
 - The planned monitoring tier is now called Qanary Watch. (d012044)
 - The homepage no longer has the token band; the mint address and disclaimer stay in the footer. (628d50b)
-- The homepage asks who can change the tokens and programs you rely on. Its examples are neutral: the Jupiter program, the wrapped SOL mint and the SPL Token program. EVM addresses still get a basic key check. (4b534b6)
-- The README and the page descriptions say what Qanary shows: who can change the programs and tokens you rely on, how strong that control is, and which of those keys a future quantum computer could break. (fb1b2ae)
+- The homepage asks who can change the tokens and programs you rely on. Its examples are neutral: the Jupiter program, the wrapped SOL mint and the Associated Token Account program. EVM addresses still get a basic key check. (4b534b6, 676064d)
+- The README and the page descriptions say what Qanary shows: who can change the programs and tokens you rely on (one key, a multisig or a program), and which of those keys a future quantum computer could break. (fb1b2ae, 676064d)
+- A program with no upgrade authority reads "no key can upgrade the code" instead of "the code can no longer be changed": a feature gate can still replace a program, as it did the SPL Token program. (676064d)
 - The Roadmap lists Qanary Watch as a free beta on Telegram, for programs and tokens a team depends on but does not run, instead of a monthly subscription. (ea9713f)
 
 ### Fixed
