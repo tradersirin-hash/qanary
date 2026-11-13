@@ -1,7 +1,8 @@
 // Vercel Function behind POST /api/scan-count: adds one to today's scan total (UTC day) in an Upstash Redis
 // database, under the key scans:YYYY-MM-DD. The site sends one empty request per completed scan (src/lib/scanCount.ts).
-// The request carries no address and the function stores nothing but the counter, so the total is all there is to
-// read (in the Upstash console). Anyone can send the request, so read the total as approximate.
+// The request carries no address and the function stores nothing but the counter, which is read in the Upstash
+// console. Vercel's runtime logs still list each invocation with its time, IP address and user agent, as for any
+// request to the site. Anyone can send the request, so read the total as approximate.
 //
 // Counting is off until the database is connected: set KV_REST_API_URL and KV_REST_API_TOKEN (the names Vercel's
 // Upstash integration sets), or UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN, for the Production environment

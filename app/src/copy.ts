@@ -532,7 +532,7 @@ const copy = {
   limit4Split:
     'The {mainnet} runs on mainnet and the {devnet} on devnet only. Both are unaudited and can still be upgraded by a classical (Ed25519) deployer key. On mainnet, use only amounts you can afford to lose; on devnet, never use real funds.',
   limit6:
-    "The scanner is read-only, but lookups go to third-party public RPC endpoints and Jupiter's price API, which can see which addresses you check. The address goes into this page's link after # (#a=), so the link can be shared, and browsers never send that part to this site. Each completed scan also sends one empty request to this site, used only to count scans per day: it carries no address and sets no cookie.",
+    "The scanner is read-only, but lookups go to third-party public RPC endpoints and Jupiter's price API, which can see which addresses you check. The address goes into this page's link after # (#a=), so the link can be shared, and browsers never send that part to this site. Each completed scan also sends one empty request to this site to count scans per day: it carries no scanned address and sets no cookie, but like any request, the host's logs briefly keep its time, IP address and browser.",
   programsTitle: 'Programs · {cluster}',
   programsTitleSplit: 'Programs',
   programOn: '{program} · {cluster}',

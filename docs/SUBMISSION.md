@@ -1,5 +1,7 @@
 # Qanary: submission notes
 
+*The hackathon submission as written in October 2026, kept as that record. The current plan is in the README and on the site's Roadmap page.*
+
 Live: https://qanary.xyz · Code: https://github.com/tradersirin-hash/qanary · X: https://x.com/Qanaryxyz
 
 ## One-liner
