@@ -30,11 +30,12 @@ const PanelFallback = () => <div className="h-72 rounded-card border border-line
 type Result = { chain: 'solana'; report: SolanaReport } | { chain: 'evm'; report: EvmReport };
 
 // Neutral examples, one of each kind: a program upgraded through a program-derived address, the wrapped SOL mint
-// (no mint or freeze authority) and the SPL Token program (an older loader with no upgrade path).
+// (no mint or freeze authority) and the Associated Token Account program, owned by BPFLoader2, an older loader with
+// no upgrade instruction. (The SPL Token program moved to the upgradeable loader through a feature gate.)
 const EXAMPLES: { label: Key; value: string; chain: 'SOL' | 'EVM' }[] = [
   { label: 'exJupiter', value: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4', chain: 'SOL' },
   { label: 'exWsolMint', value: 'So11111111111111111111111111111111111111112', chain: 'SOL' },
-  { label: 'exTokenProgram', value: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', chain: 'SOL' },
+  { label: 'exAtaProgram', value: 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL', chain: 'SOL' },
 ];
 
 const NAV: { page: Page; label: Key }[] = [

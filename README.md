@@ -1,6 +1,6 @@
 # Qanary
 
-**The quantum canary for Solana.** Qanary shows who can change the Solana programs and tokens you rely on, how strong that control is, and which of those keys a future quantum computer could break. It also keeps funds behind hash-based post-quantum signatures, and gives every program a public on-chain flag that flips once someone proves elliptic-curve keys can be broken.
+**The quantum canary for Solana.** Qanary shows who can change the Solana programs and tokens you rely on (one key, a multisig or a program) and which of those keys a future quantum computer could break. It also keeps funds behind hash-based post-quantum signatures, and gives every program a public on-chain flag that flips once someone proves elliptic-curve keys can be broken.
 
 **Live:** https://qanary.xyz (Scan on mainnet, read-only; Vault and Bounty on devnet) · **X:** [@Qanaryxyz](https://x.com/Qanaryxyz)
 
@@ -44,7 +44,7 @@ cd app && npm install && npm run dev
 cd onchain && bash scripts/wsl-build.sh
 ```
 
-`app/.npmrc` disables install scripts; dependencies are pinned exactly. The web app has one page per part (`/`, `/how`, `/vault`, `/bounty`, `/qday`, `/roadmap`); `app/vercel.json` serves `index.html` for those paths and sets the security headers. Its Content-Security-Policy allows scripts only from the site itself and network requests only to the listed RPC and price hosts, so injected code could not send a recovery phrase anywhere else; a new RPC host (for example through `VITE_SOLANA_RPC` or `VITE_DEVNET_RPC`) must be added to `connect-src` there, and the build fails until it is. `npm test` runs the app's unit tests. CI checks the packages the site ships against npm's advisory database, and the whole tree, build tools included, for high-severity advisories.
+`app/.npmrc` disables install scripts; dependencies are pinned exactly. The web app has one page per part (`/`, `/how`, `/vault`, `/bounty`, `/qday`, `/roadmap`); `app/vercel.json` serves `index.html` for those paths and sets the security headers. Its Content-Security-Policy allows scripts only from the site itself and network requests only to the site itself and the listed RPC and price hosts, so injected code could not send a recovery phrase anywhere else; a new RPC host (for example through `VITE_SOLANA_RPC` or `VITE_DEVNET_RPC`) must be added to `connect-src` there, and the build fails until it is. `npm test` runs the app's unit tests. CI checks the packages the site ships against npm's advisory database, and the whole tree, build tools included, for high-severity advisories.
 
 `wsl-build.sh` builds only from the committed `Cargo.lock` and fails if the lock is stale or the build changes it; `onchain/Anchor.toml` pins Anchor 1.2.1 and Agave 4.3.0. CI (`.github/workflows/ci.yml`) builds both programs for SBF the same way and runs every Rust test against them, the LiteSVM suites included, and fails if the test count shown on the site is out of date. CI also checks formatting against `onchain/rustfmt.toml` and runs clippy with warnings as errors.
 

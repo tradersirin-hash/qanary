@@ -30,7 +30,7 @@ const copy = {
   heroTitleLead: 'Who can change the tokens and programs',
   heroTitleEm: 'you rely on?',
   heroSub:
-    'Paste a Solana wallet, token mint or program. Qanary reads the upgrade, mint and freeze authorities behind it and their multisig signers, and shows which rest on Ed25519 keys a future quantum computer could break.',
+    'Paste a Solana wallet, token mint or program. Qanary reads who holds its upgrade, mint and freeze authorities (one key, a multisig or a program) and shows which rest on Ed25519 keys a future quantum computer could break.',
   addressLabel: 'Solana or EVM address',
   placeholder: 'Solana wallet, mint or program',
   scan: 'Scan',
@@ -43,7 +43,7 @@ const copy = {
   tryLabel: 'Try:',
   exJupiter: 'Jupiter program',
   exWsolMint: 'Wrapped SOL mint',
-  exTokenProgram: 'SPL Token program',
+  exAtaProgram: 'Associated Token Account program',
   evmHint: 'EVM (0x…) addresses get a basic key check.',
   invalid: 'That is not a valid Solana or EVM address. Names like name.eth or name.sol are not supported: paste the raw address.',
   networkError: 'Could not reach the network. Public RPCs sometimes rate-limit; trying again usually works.',
@@ -153,7 +153,7 @@ const copy = {
   upgradeExposed:
     'One Ed25519 key can replace this program. A quantum attacker who derives it can rewrite the code and everything it controls.',
   upgradePda: 'Upgrades go through a program-derived address, usually a multisig. Check its signers: they are usually Ed25519 keys too.',
-  upgradeNone: 'No upgrade authority: the code can no longer be changed.',
+  upgradeNone: 'No upgrade authority: no key can upgrade the code.',
   programClosed: 'This program has been closed and can no longer run.',
   programBuiltin: 'Built into the validator. It changes only through a network-wide feature upgrade.',
   upgradeUnknown: 'Could not determine who controls this program.',
