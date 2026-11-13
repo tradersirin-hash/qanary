@@ -489,8 +489,8 @@ const copy = {
   tierWatchTitle: 'Qanary Watch',
   tierWatchFor: 'For teams, funds and power users',
   tierWatchBody:
-    'Continuous monitoring of your addresses, programs and mints. Alerts when an upgrade or mint authority changes hands, a new exposed key takes control, or value piles up behind a single key.',
-  tierWatchPrice: 'Monthly subscription',
+    'Alerts in Telegram for the Solana programs and tokens you depend on but do not run: a program upgrade, an upgrade, mint or freeze authority handed to another key, or a multisig that changes its members or threshold. Each alert states what changed and how it was read, with no risk score.',
+  tierWatchPrice: 'Free beta on Telegram',
   tierReportTitle: 'Quantum-readiness reports',
   tierReportFor: 'For protocols, foundations and treasuries',
   tierReportBody:

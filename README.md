@@ -75,7 +75,7 @@ What Qanary adds:
 
 ## Business model
 
-Scan stays free and the canary flag stays a public good. The plan, none of it live yet: a **Qanary API** for wallets, exchanges and custodians; **Qanary Watch**, paid monitoring and alerts for a team's addresses, programs and mints; **quantum-readiness reports** for protocols and treasuries; paid **canary integration** for protocols, multisigs and DAOs once the canary is audited and immutable on mainnet; and **Qanary Vault Pro** with treasury policies, only after an independent audit. Canary alerts will be free for everyone, and a share of paid revenue is meant to top up the bounty pool. See the site's Roadmap page.
+Scan stays free and the canary flag stays a public good. The plan, none of it live yet: a **Qanary API** for wallets, exchanges and custodians; **Qanary Watch**, alerts in Telegram, free while in beta, for the programs and tokens a team depends on but does not run; **quantum-readiness reports** for protocols and treasuries; paid **canary integration** for protocols, multisigs and DAOs once the canary is audited and immutable on mainnet; and **Qanary Vault Pro** with treasury policies, only after an independent audit. Canary alerts will be free for everyone, and a share of paid revenue is meant to top up the bounty pool. See the site's Roadmap page.
 
 ## Honest claims
 
